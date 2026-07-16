@@ -596,12 +596,6 @@ static void CG_DamageBlendBlob( void ) {
 }
 
 
-// how far the killcam camera floats behind the killer's head
-#define KILLCAM_CAMERA_RANGE	64
-// how far above the killer's head the camera floats, so that the
-// killer's model doesn't cover the victim at the center of the screen
-#define KILLCAM_CAMERA_HEIGHT	24
-
 /*
 ===============
 CG_KillcamCalcKillerView
@@ -642,15 +636,32 @@ static qboolean CG_KillcamCalcKillerView( void ) {
 	VectorCopy( killer->lerpOrigin, eye );
 	eye[2] += DEFAULT_VIEWHEIGHT;
 
+	VectorCopy( cg.predictedPlayerState.origin, target );
+	target[2] += 8;		// roughly the middle of the body
+
 	// raise the camera above the killer's head, tracing so that a low
 	// ceiling doesn't put it in solid
 	VectorCopy( eye, camOrg );
-	camOrg[2] += KILLCAM_CAMERA_HEIGHT;
+	camOrg[2] += cg_killcamHeight.value;
 	CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killerNum, MASK_SOLID );
 	VectorCopy( trace.endpos, eye );
 
-	VectorCopy( cg.predictedPlayerState.origin, target );
-	target[2] += 8;		// roughly the middle of the body
+	// and shift it sideways, so that neither the killer's model nor the
+	// award icons above their head cover the victim
+	if ( cg_killcamSide.value != 0 ) {
+		vec3_t	right;
+
+		VectorSubtract( target, eye, forward );
+		forward[2] = 0;
+		if ( VectorNormalize( forward ) >= 1 ) {
+			right[0] = forward[1];
+			right[1] = -forward[0];
+			right[2] = 0;
+			VectorMA( eye, cg_killcamSide.value, right, camOrg );
+			CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killerNum, MASK_SOLID );
+			VectorCopy( trace.endpos, eye );
+		}
+	}
 
 	VectorSubtract( target, eye, forward );
 	if ( VectorNormalize( forward ) < 1 ) {
@@ -661,7 +672,7 @@ static qboolean CG_KillcamCalcKillerView( void ) {
 
 	// back away from the killer's head so their model is visible,
 	// without going into a wall
-	VectorMA( eye, -KILLCAM_CAMERA_RANGE, forward, camOrg );
+	VectorMA( eye, -cg_killcamRange.value, forward, camOrg );
 	CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killerNum, MASK_SOLID );
 	VectorCopy( trace.endpos, cg.refdef.vieworg );
 
