@@ -152,6 +152,15 @@ CG_CVAR( cg_killcam, "cg_killcam", "1", CVAR_ARCHIVE )
 CG_CVAR( cg_killcamStartDelay, "cg_killcamStartDelay", "1800", CVAR_ARCHIVE )
 CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2500", CVAR_ARCHIVE )
 CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "2500", CVAR_ARCHIVE )
+// When 1, suicides and world deaths (lava, falling, ...) also get a
+// killcam: a third-person replay of ourselves. When 0, only deaths
+// caused by other players do (also see cg_killcamLastAttacker).
+CG_CVAR( cg_killcamSuicides, "cg_killcamSuicides", "1", CVAR_ARCHIVE )
+// For suicides and world deaths: if another player damaged us within
+// this many milliseconds before the death (e.g. knocked us off a
+// ledge), show the killcam from their side instead. Works regardless
+// of cg_killcamSuicides. 0 = off.
+CG_CVAR( cg_killcamLastAttacker, "cg_killcamLastAttacker", "7500", CVAR_ARCHIVE )
 // Killcam camera placement: how far behind, above and to the side of
 // the killer's head the camera floats. The height and side offsets keep
 // the killer's model and the award icons above their head from covering
