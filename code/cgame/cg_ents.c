@@ -746,7 +746,7 @@ CG_CalcEntityLerpPositions
 
 ===============
 */
-static void CG_CalcEntityLerpPositions( centity_t *cent ) {
+void CG_CalcEntityLerpPositions( centity_t *cent ) {
 
 	// if this player does not want to see extrapolated players
 	if ( !cg_smoothClients.integer ) {

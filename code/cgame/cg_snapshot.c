@@ -21,11 +21,17 @@ CG_ProcessSnapshots reads from the ring instead of trap_GetSnapshot.
 // How many of the most recent snapshots are kept for killcam playback.
 // The engine itself only buffers PACKET_BACKUP (32); a useful killcam
 // delay needs more history. Raw snapshot_t storage is large (~55 KB
-// each): 64 slots is ~3.4 MB of bss and covers ~3.2 s at snaps 20
-// (~1.6 s at snaps 40).
+// each): 128 slots is ~6.9 MB of bss and covers ~6.4 s at snaps 20
+// (~3.2 s at snaps 40 -- just enough for the death replay's ~2.9 s
+// delay; at higher snaps rates the killcam simply won't trigger).
 // TODO: consider compressing (delta encoding like the engine's) to
-// afford a longer history.
-#define KILLCAM_SNAPSHOT_BACKUP	64
+// afford a longer history in less memory.
+#define KILLCAM_SNAPSHOT_BACKUP	128
+
+// death replay timing (all in milliseconds)
+#define KILLCAM_PREROLL		2500	// replay starts this long before the death...
+#define KILLCAM_POSTROLL	1500	// ...and ends this long after it (gibs!)
+#define KILLCAM_START_DELAY	400		// how long after dying the view switches
 
 static snapshot_t	cg_killcamSnapshots[KILLCAM_SNAPSHOT_BACKUP];
 // total snapshots ever recorded; snapshot n (1-based) lives in
@@ -35,6 +41,14 @@ static int			cg_killcamRecordedCount;
 // consumed. Counterpart of cgs.processedSnapshotNum for the live context.
 static int			cg_killcamProcessedNum;
 static qboolean		cg_killcamRunning;
+static killcamMode_t	cg_killcamMode = KILLCAM_OFF;	// of the current run
+static int			cg_killcamCurDelay;		// ms the current run lags behind live time
+static int			cg_killcamKillerNum = -1;
+
+// scheduled death replay (set when the local player gets killed)
+static qboolean		cg_killcamDeathPending;
+static int			cg_killcamDeathTime;	// cg.time when the obituary arrived
+static int			cg_killcamDeathKiller;
 
 
 static void CG_KillcamRecordSnapshot( const snapshot_t *snap ) {
@@ -84,7 +98,7 @@ older history. CG_ProcessSnapshots does the rest on the next killcam
 frame, just like after a fresh connect.
 ==================
 */
-void CG_KillcamStart( int time ) {
+void CG_KillcamStart( int time, killcamMode_t mode ) {
 	cgContext_t	*kc = &cg_contexts[CG_CONTEXT_KILLCAM];
 	int			oldest;
 	int			i;
@@ -111,12 +125,126 @@ void CG_KillcamStart( int time ) {
 		}
 	}
 
+	cg_killcamMode = mode;
 	cg_killcamRunning = qtrue;
 }
 
 
 void CG_KillcamStop( void ) {
 	cg_killcamRunning = qfalse;
+	cg_killcamMode = KILLCAM_OFF;
+}
+
+
+killcamMode_t CG_KillcamMode( void ) {
+	return cg_killcamRunning ? cg_killcamMode : KILLCAM_OFF;
+}
+
+
+int CG_KillcamKillerNum( void ) {
+	return cg_killcamKillerNum;
+}
+
+
+/*
+==================
+CG_KillcamScheduleDeathReplay
+
+Called from the obituary event when the local player gets killed by
+another player. The replay itself is started later by CG_KillcamUpdate.
+==================
+*/
+void CG_KillcamScheduleDeathReplay( int killerNum, int time ) {
+	if ( cg_contextNum != CG_CONTEXT_LIVE ) {
+		// obituary events re-fired by the replay itself
+		return;
+	}
+	cg_killcamDeathPending = qtrue;
+	cg_killcamDeathKiller = killerNum;
+	cg_killcamDeathTime = time;
+}
+
+
+/*
+==================
+CG_KillcamUpdate
+
+Runs the killcam state machine once per frame (with the live context
+current). Returns how many milliseconds behind live time the killcam
+context should be rendered this frame, or 0 to render the live view.
+==================
+*/
+int CG_KillcamUpdate( int serverTime ) {
+	// dev/test mode (cg_killcamTest <ms>) takes priority: replay of the
+	// own view at a fixed delay
+	if ( cg_killcamTest.integer > 0 ) {
+		int delay = cg_killcamTest.integer;
+
+		cg_killcamDeathPending = qfalse;
+		if ( !cg_killcamRunning && CG_KillcamHasSnapshotFor( serverTime - delay ) ) {
+			CG_KillcamStart( serverTime - delay, KILLCAM_TEST );
+		}
+		if ( cg_killcamRunning && cg_killcamMode == KILLCAM_TEST &&
+			CG_KillcamHasSnapshotFor( serverTime - delay ) )
+		{
+			return delay;
+		}
+		return 0;
+	}
+	if ( cg_killcamRunning && cg_killcamMode == KILLCAM_TEST ) {
+		CG_KillcamStop();
+	}
+
+	if ( !cg_killcam.integer ) {
+		cg_killcamDeathPending = qfalse;
+		if ( cg_killcamRunning ) {
+			CG_KillcamStop();
+		}
+		return 0;
+	}
+
+	// death replay in progress?
+	if ( cg_killcamRunning && cg_killcamMode == KILLCAM_KILLER ) {
+		if (
+			// replay finished
+			serverTime - cg_killcamCurDelay > cg_killcamDeathTime + KILLCAM_POSTROLL
+			// the player respawned (e.g. clicked): hand the view back
+			|| ( cg.snap && cg.snap->ps.stats[STAT_HEALTH] > 0 )
+			// recording outran the playback; can't render this frame
+			|| !CG_KillcamHasSnapshotFor( serverTime - cg_killcamCurDelay ) )
+		{
+			CG_KillcamStop();
+			return 0;
+		}
+		return cg_killcamCurDelay;
+	}
+
+	// scheduled death replay waiting to start?
+	if ( cg_killcamDeathPending ) {
+		int replayStartTime = cg_killcamDeathTime - KILLCAM_PREROLL;
+
+		// let the death register on screen before switching views
+		if ( serverTime < cg_killcamDeathTime + KILLCAM_START_DELAY ) {
+			return 0;
+		}
+		cg_killcamDeathPending = qfalse;
+
+		// skip if the player already respawned or the game is ending
+		if ( !cg.snap || cg.snap->ps.stats[STAT_HEALTH] > 0 || cg.intermissionStarted ) {
+			return 0;
+		}
+		// not enough recorded history (e.g. very high snaps rate)
+		if ( !CG_KillcamHasSnapshotFor( replayStartTime ) ) {
+			return 0;
+		}
+
+		cg_killcamCurDelay = serverTime - replayStartTime;
+		cg_killcamKillerNum = cg_killcamDeathKiller;
+		CG_KillcamStart( replayStartTime, KILLCAM_KILLER );
+		return cg_killcamCurDelay;
+	}
+
+	return 0;
 }
 
 

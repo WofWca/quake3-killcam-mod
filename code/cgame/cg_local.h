@@ -1349,6 +1349,7 @@ void CG_PainEvent( centity_t *cent, int health );
 //
 void CG_SetEntitySoundPosition( const centity_t *cent );
 void CG_AddPacketEntities( void );
+void CG_CalcEntityLerpPositions( centity_t *cent );
 void CG_Beam( const centity_t *cent );
 void CG_AdjustPositionForMover( const vec3_t in, int moverNum, int fromTime, int toTime, vec3_t out, const vec3_t angles_in, vec3_t angles_out );
 
@@ -1445,10 +1446,20 @@ localEntity_t *CG_MakeExplosion( const vec3_t origin, const vec3_t dir,
 void CG_ProcessSnapshots( void );
 
 // killcam snapshot recording / delayed playback
+typedef enum {
+	KILLCAM_OFF,
+	KILLCAM_TEST,	// cg_killcamTest: own view at a fixed delay
+	KILLCAM_KILLER	// death replay: camera at the killer, aimed at the victim
+} killcamMode_t;
+
 qboolean CG_KillcamRunning( void );
 qboolean CG_KillcamHasSnapshotFor( int time );
-void CG_KillcamStart( int time );
+void CG_KillcamStart( int time, killcamMode_t mode );
 void CG_KillcamStop( void );
+killcamMode_t CG_KillcamMode( void );
+int CG_KillcamKillerNum( void );
+void CG_KillcamScheduleDeathReplay( int killerNum, int time );
+int CG_KillcamUpdate( int serverTime );
 
 //
 // cg_info.c
