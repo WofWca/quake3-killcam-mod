@@ -134,6 +134,14 @@ CG_CVAR( cg_killcam, "cg_killcam", "1", CVAR_ARCHIVE,
 	"few seconds with the camera at the killer, aimed at you. Ends on its "
 	"own shortly after the kill, or as soon as you respawn (clicking to "
 	"respawn still works during the replay)." )
+CG_CVAR( cg_killcamRange, "cg_killcamRange", "64", CVAR_ARCHIVE,
+	"Killcam camera placement: how far behind, above and to the side of "
+	"the killer's head the camera floats. The height and side offsets keep "
+	"the killer's model and the award icons above their head from covering "
+	"the victim at the center of the screen. Positive side = camera to the "
+	"killer's right (the killer appears left of center), negative = left." )
+CG_CVAR( cg_killcamHeight, "cg_killcamHeight", "24", CVAR_ARCHIVE, NULL )
+CG_CVAR( cg_killcamSide, "cg_killcamSide", "20", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_killcamTest, "cg_killcamTest", "0", 0,
 	"Killcam development / testing: when > 0, render the world this many "
 	"milliseconds in the past (from your own point of view), replayed from "
