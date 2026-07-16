@@ -21,12 +21,11 @@ CG_ProcessSnapshots reads from the ring instead of trap_GetSnapshot.
 // How many of the most recent snapshots are kept for killcam playback.
 // The engine itself only buffers PACKET_BACKUP (32); a useful killcam
 // delay needs more history. Raw snapshot_t storage is large (~55 KB
-// each): 128 slots is ~6.9 MB of bss and covers ~6.4 s at snaps 20
-// (~3.2 s at snaps 40 -- just enough for the death replay's ~2.9 s
-// delay; at higher snaps rates the killcam simply won't trigger).
+// each): 512 slots is ~27.6 MB of bss and covers ~25.6 s at snaps 20
+// or ~12.8 s at snaps 40.
 // TODO: consider compressing (delta encoding like the engine's) to
 // afford a longer history in less memory.
-#define KILLCAM_SNAPSHOT_BACKUP	128
+#define KILLCAM_SNAPSHOT_BACKUP	512
 
 // when the preroll gets clamped to the oldest recorded snapshot, keep
 // this much slack (ms) so playback doesn't ride the ring's eviction
