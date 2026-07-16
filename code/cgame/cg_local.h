@@ -1349,6 +1349,7 @@ void CG_PainEvent( centity_t *cent, int health );
 //
 void CG_SetEntitySoundPosition( const centity_t *cent );
 void CG_AddPacketEntities( void );
+void CG_SetFrameInterpolation( void );
 void CG_CalcEntityLerpPositions( centity_t *cent );
 void CG_Beam( const centity_t *cent );
 void CG_AdjustPositionForMover( const vec3_t in, int moverNum, int fromTime, int toTime, vec3_t out, const vec3_t angles_in, vec3_t angles_out );
