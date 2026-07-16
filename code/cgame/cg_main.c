@@ -79,11 +79,27 @@ DLLEXPORT intptr_t vmMain( int command, int arg0, int arg1, int arg2 ) {
 }
 
 
-cg_t				cg;
+cgContext_t			cg_contexts[CG_NUM_CONTEXTS];
+cgContext_t			*cgc = &cg_contexts[CG_CONTEXT_LIVE];
+int					cg_contextNum = CG_CONTEXT_LIVE;
 cgs_t				cgs;
-centity_t			cg_entities[MAX_GENTITIES];
 weaponInfo_t		cg_weapons[MAX_WEAPONS];
 itemInfo_t			cg_items[MAX_ITEMS];
+
+/*
+=================
+CG_SetContext
+
+Switch the current world context (live game vs killcam replay).
+Everything accessed through cg / cg_entities and the per-context
+file-local arrays (local entities, marks, particles, solid lists)
+switches with it.
+=================
+*/
+void CG_SetContext( int contextNum ) {
+	cgc = &cg_contexts[contextNum];
+	cg_contextNum = contextNum;
+}
 
 #define DECLARE_CG_CVAR
 	#include "cg_cvar.h"
@@ -1672,8 +1688,8 @@ void CG_Init( int serverMessageNum, int serverCommandSequence, int clientNum ) {
 
 	// clear everything
 	memset( &cgs, 0, sizeof( cgs ) );
-	memset( &cg, 0, sizeof( cg ) );
-	memset( cg_entities, 0, sizeof(cg_entities) );
+	memset( cg_contexts, 0, sizeof( cg_contexts ) );
+	CG_SetContext( CG_CONTEXT_LIVE );
 	memset( cg_weapons, 0, sizeof(cg_weapons) );
 	memset( cg_items, 0, sizeof(cg_items) );
 
