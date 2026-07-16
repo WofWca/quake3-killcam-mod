@@ -129,6 +129,11 @@ CG_CVAR( cg_teamColors, "cg_teamColors", "", CVAR_ARCHIVE )
 CG_CVAR( cg_deadBodyDarken, "cg_deadBodyDarken", "1", CVAR_ARCHIVE )
 CG_CVAR( cg_fovAdjust, "cg_fovAdjust", "0", CVAR_ARCHIVE )
 CG_CVAR( cg_followKiller, "cg_followKiller", "0", CVAR_ARCHIVE )
+// When 1, dying to another player shows a killcam: a replay of the last
+// few seconds with the camera at the killer, aimed at you. Ends on its
+// own shortly after the kill, or as soon as you respawn (clicking to
+// respawn still works during the replay).
+CG_CVAR( cg_killcam, "cg_killcam", "1", CVAR_ARCHIVE )
 // Killcam development / testing: when > 0, render the world this many
 // milliseconds in the past (from your own point of view), replayed from
 // recorded snapshots in the killcam context. 0 = off.
