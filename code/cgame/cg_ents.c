@@ -1000,12 +1000,16 @@ CG_AddPacketEntities
 
 ===============
 */
-void CG_AddPacketEntities( void ) {
-	int					num;
-	centity_t			*cent;
-	playerState_t		*ps;
+/*
+===============
+CG_SetFrameInterpolation
 
-	// set cg.frameInterpolation
+Sets cg.frameInterpolation for the current cg.time. Also called by the
+killcam camera code, which needs entity lerp positions before
+CG_AddPacketEntities has run for this frame.
+===============
+*/
+void CG_SetFrameInterpolation( void ) {
 	if ( cg.nextSnap ) {
 		int		delta;
 
@@ -1016,9 +1020,18 @@ void CG_AddPacketEntities( void ) {
 			cg.frameInterpolation = (float)( cg.time - cg.snap->serverTime ) / delta;
 		}
 	} else {
-		cg.frameInterpolation = 0;	// actually, it should never be used, because 
+		cg.frameInterpolation = 0;	// actually, it should never be used, because
 									// no entities should be marked as interpolating
 	}
+}
+
+void CG_AddPacketEntities( void ) {
+	int					num;
+	centity_t			*cent;
+	playerState_t		*ps;
+
+	// set cg.frameInterpolation
+	CG_SetFrameInterpolation();
 
 	// the auto-rotating items will all have the same axis
 	cg.autoAngles[0] = 0;
