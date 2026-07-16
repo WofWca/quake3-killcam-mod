@@ -51,6 +51,26 @@ static int			cg_killcamDeathTime;	// cg.time when the obituary arrived
 static int			cg_killcamDeathKiller;
 
 
+// `trap_GetSnapshot` might actually be faster than copying the whole struct,
+// because a `snapshot_t` struct has space for `MAX_GENTITIES` ents,
+// whereas actual snaps only contain a few, so we need to copy less stuff.
+#ifndef KILLCAM_COPY_SNAPSHOT
+static void CG_KillcamRecordSnapshot( int num ) {
+	qboolean	r;
+	snapshot_t	*dest = &cg_killcamSnapshots[
+		cg_killcamRecordedCount % KILLCAM_SNAPSHOT_BACKUP
+	];
+	r = trap_GetSnapshot( num, dest );
+	if ( !r ) {
+		CG_Printf( S_COLOR_YELLOW "WARNING: expected CG_KillcamRecordSnapshot to get called only when a snapshot exists\n" );
+		return;
+	}
+	if ( dest->snapFlags & SNAPFLAG_NOT_ACTIVE ) {
+		return;
+	}
+	cg_killcamRecordedCount++;
+}
+#else
 static void CG_KillcamRecordSnapshot( const snapshot_t *snap ) {
 	if ( snap->snapFlags & SNAPFLAG_NOT_ACTIVE ) {
 		return;
@@ -58,6 +78,7 @@ static void CG_KillcamRecordSnapshot( const snapshot_t *snap ) {
 	cg_killcamSnapshots[cg_killcamRecordedCount % KILLCAM_SNAPSHOT_BACKUP] = *snap;
 	cg_killcamRecordedCount++;
 }
+#endif
 
 
 qboolean CG_KillcamRunning( void ) {
@@ -596,7 +617,11 @@ static snapshot_t *CG_ReadNextSnapshot( void ) {
 		// if it succeeded, return
 		if ( r ) {
 			CG_AddLagometerSnapshotInfo( dest );
+#ifndef KILLCAM_COPY_SNAPSHOT
+			CG_KillcamRecordSnapshot( cgs.processedSnapshotNum );
+#else
 			CG_KillcamRecordSnapshot( dest );
+#endif
 			return dest;
 		}
 
