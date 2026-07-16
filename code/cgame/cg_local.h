@@ -1462,6 +1462,12 @@ int CG_KillcamKillerNum( void );
 void CG_KillcamScheduleDeathReplay( int killerNum, int time );
 int CG_KillcamUpdate( int serverTime );
 
+// qtrue while the current killcam frame is rendered from the killer's
+// eyes (set by CG_CalcViewValues): the killer's own model is hidden
+// (cg_players.c) and their view weapon is drawn (cg_weapons.c)
+extern qboolean cg_killcamRenderingFirstPerson;
+void CG_KillcamAddViewWeapon( void );
+
 //
 // cg_info.c
 //

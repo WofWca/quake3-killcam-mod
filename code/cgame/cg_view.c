@@ -596,6 +596,60 @@ static void CG_DamageBlendBlob( void ) {
 }
 
 
+// see cg_local.h
+qboolean cg_killcamRenderingFirstPerson = qfalse;
+
+/*
+===============
+CG_KillcamCalcKillerFirstPersonView
+
+Death replay camera from the killer's eyes. Returns qfalse (falling
+back to the third-person killer camera) if the killer isn't in the
+replayed snapshot or is dead.
+===============
+*/
+static qboolean CG_KillcamCalcKillerFirstPersonView( void ) {
+	centity_t	*killer;
+	int			killerNum;
+	int			legsAnim;
+
+	killerNum = CG_KillcamKillerNum();
+	if ( killerNum < 0 || killerNum >= MAX_CLIENTS ||
+		killerNum == cg.snap->ps.clientNum )
+	{
+		return qfalse;
+	}
+
+	killer = &cg_entities[killerNum];
+	if ( !killer->currentValid ) {
+		return qfalse;
+	}
+	if ( killer->currentState.eFlags & EF_DEAD ) {
+		// first person from a corpse (mutual kill) looks broken
+		return qfalse;
+	}
+
+	// see the comment in CG_KillcamCalcKillerView
+	CG_SetFrameInterpolation();
+	CG_CalcEntityLerpPositions( killer );
+
+	VectorCopy( killer->lerpOrigin, cg.refdef.vieworg );
+	legsAnim = killer->currentState.legsAnim & ~ANIM_TOGGLEBIT;
+	if ( legsAnim == LEGS_WALKCR || legsAnim == LEGS_IDLECR ) {
+		cg.refdef.vieworg[2] += CROUCH_VIEWHEIGHT;
+	} else {
+		cg.refdef.vieworg[2] += DEFAULT_VIEWHEIGHT;
+	}
+	VectorCopy( killer->lerpAngles, cg.refdefViewAngles );
+
+	// the victim's bob state doesn't apply to the killer's view weapon
+	cg.bobcycle = 0;
+	cg.bobfracsin = 0;
+	cg.xyspeed = 0;
+
+	return qtrue;
+}
+
 /*
 ===============
 CG_KillcamCalcKillerView
@@ -750,7 +804,15 @@ static int CG_CalcViewValues( void ) {
 		}
 	}
 
-	if ( cg_contextNum == CG_CONTEXT_KILLCAM &&
+	cg_killcamRenderingFirstPerson =
+		cg_contextNum == CG_CONTEXT_KILLCAM &&
+		CG_KillcamMode() == KILLCAM_KILLER &&
+		cg_killcamFirstPerson.integer &&
+		CG_KillcamCalcKillerFirstPersonView();
+
+	if ( cg_killcamRenderingFirstPerson ) {
+		// camera was placed at the killer's eyes
+	} else if ( cg_contextNum == CG_CONTEXT_KILLCAM &&
 		CG_KillcamMode() == KILLCAM_KILLER &&
 		CG_KillcamCalcKillerView() )
 	{
@@ -969,7 +1031,13 @@ static void CG_DrawActiveFrameCtx( int serverTime, stereoFrame_t stereoView, qbo
 		CG_AddLocalEntities();
 	}
 	if ( !cg_passHidden ) {
-		CG_AddViewWeapon( &cg.predictedPlayerState );
+		if ( cg_killcamRenderingFirstPerson ) {
+			// the killer's weapon; the normal view weapon is skipped
+			// anyway because the killcam forces renderingThirdPerson
+			CG_KillcamAddViewWeapon();
+		} else {
+			CG_AddViewWeapon( &cg.predictedPlayerState );
+		}
 	}
 
 	// add buffered sounds
