@@ -955,8 +955,20 @@ static void CG_DrawActiveFrameCtx( int serverTime, stereoFrame_t stereoView, qbo
 			CG_AddPacketEntities();	// alter calcViewValues, so predicted player state is correct
 			CG_AddMarks();
 			CG_AddParticles ();
-			CG_AddLocalEntities();
 		}
+	}
+	// Local entities (gibs!) carry their own physics state -- bouncing
+	// rewrites their trajectory -- so they must keep being simulated
+	// even while this context is processed hidden behind the killcam.
+	// Otherwise they freeze and, when the view switches back, get hit
+	// with all the accumulated gravity at once and plummet straight
+	// down. In a hidden pass the refEntities added here are discarded
+	// by the killcam pass's trap_R_ClearScene, and the bounce sounds
+	// are muted via cg_soundMuted.
+	if ( !cg.hyperspace ) {
+		CG_AddLocalEntities();
+	}
+	if ( !cg_passHidden ) {
 		CG_AddViewWeapon( &cg.predictedPlayerState );
 	}
 
