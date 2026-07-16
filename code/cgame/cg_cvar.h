@@ -134,6 +134,15 @@ CG_CVAR( cg_killcam, "cg_killcam", "1", CVAR_ARCHIVE,
 	"few seconds with the camera at the killer, aimed at you. Ends on its "
 	"own shortly after the kill, or as soon as you respawn (clicking to "
 	"respawn still works during the replay)." )
+CG_CVAR( cg_killcamStartDelay, "cg_killcamStartDelay", "400", CVAR_ARCHIVE,
+	"Death replay timing, all in milliseconds. The view switches "
+	"cg_killcamStartDelay after dying; the replay covers from "
+	"cg_killcamPreroll before the kill to cg_killcamPostroll after it. "
+	"The replay history is limited by the snapshot ring buffer (~6.4 s at "
+	"snaps 20, ~3.2 s at snaps 40): if it no longer holds the full "
+	"preroll, the replay starts at the oldest recorded snapshot instead." )
+CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2500", CVAR_ARCHIVE, NULL )
+CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "1500", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_killcamRange, "cg_killcamRange", "64", CVAR_ARCHIVE,
 	"Killcam camera placement: how far behind, above and to the side of "
 	"the killer's head the camera floats. The height and side offsets keep "
