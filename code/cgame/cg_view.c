@@ -629,6 +629,12 @@ static qboolean CG_KillcamCalcKillerView( void ) {
 		return qfalse;
 	}
 
+	// cg.frameInterpolation is normally set later in the frame, by
+	// CG_AddPacketEntities. Without this the killer's lerpOrigin here
+	// is computed with the previous frame's interpolation fraction and
+	// disagrees with where the killer model is actually drawn, which
+	// makes the camera shake.
+	CG_SetFrameInterpolation();
 	CG_CalcEntityLerpPositions( killer );
 	VectorCopy( killer->lerpOrigin, eye );
 	eye[2] += DEFAULT_VIEWHEIGHT;
