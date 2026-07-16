@@ -137,20 +137,29 @@ CG_CVAR( cg_killcam, "cg_killcam", "1", CVAR_ARCHIVE )
 // Death replay timing, all in milliseconds. The view switches
 // cg_killcamStartDelay after dying; the replay covers from
 // cg_killcamPreroll before the kill to cg_killcamPostroll after it.
-// The replay history is limited by the snapshot ring buffer (~6.4 s at
-// snaps 20, ~3.2 s at snaps 40): if it no longer holds the full
+// The replay history is limited by the snapshot ring buffer (
+// see KILLCAM_SNAPSHOT_BACKUP, ~25.6 s at snaps 20,
+// ~12.8 s at snaps 40): if it no longer holds the full
 // preroll, the replay starts at the oldest recorded snapshot instead.
-CG_CVAR( cg_killcamStartDelay, "cg_killcamStartDelay", "400", CVAR_ARCHIVE )
+//
+// Note that respawn delay after death is 1700 (see `respawnTime`).
+// Let's also use the killcam transition as an indication
+// that "you can respawn".
+// But it overall feels good for it to be at ~1700.
+// Though we want to make sure that when "Fire" is held
+// then we don't transition to the killcam for a frame or two.
+// Exactly 1700 would be better, but we seem to have some miscalculations.
+CG_CVAR( cg_killcamStartDelay, "cg_killcamStartDelay", "1800", CVAR_ARCHIVE )
 CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2500", CVAR_ARCHIVE )
-CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "1500", CVAR_ARCHIVE )
+CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "2500", CVAR_ARCHIVE )
 // Killcam camera placement: how far behind, above and to the side of
 // the killer's head the camera floats. The height and side offsets keep
 // the killer's model and the award icons above their head from covering
 // the victim at the center of the screen. Positive side = camera to the
 // killer's right (the killer appears left of center), negative = left.
-CG_CVAR( cg_killcamRange, "cg_killcamRange", "64", CVAR_ARCHIVE )
+CG_CVAR( cg_killcamRange, "cg_killcamRange", "50", CVAR_ARCHIVE )
 CG_CVAR( cg_killcamHeight, "cg_killcamHeight", "24", CVAR_ARCHIVE )
-CG_CVAR( cg_killcamSide, "cg_killcamSide", "20", CVAR_ARCHIVE )
+CG_CVAR( cg_killcamSide, "cg_killcamSide", "-15", CVAR_ARCHIVE )
 // Killcam development / testing: when > 0, render the world this many
 // milliseconds in the past (from your own point of view), replayed from
 // recorded snapshots in the killcam context. 0 = off.
