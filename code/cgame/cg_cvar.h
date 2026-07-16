@@ -161,6 +161,14 @@ CG_CVAR( cg_killcamSuicides, "cg_killcamSuicides", "1", CVAR_ARCHIVE )
 // ledge), show the killcam from their side instead. Works regardless
 // of cg_killcamSuicides. 0 = off.
 CG_CVAR( cg_killcamLastAttacker, "cg_killcamLastAttacker", "7500", CVAR_ARCHIVE )
+// When 1, the death replay is shown from the killer's eyes (with their
+// view weapon), like a classic killcam. When 0, a third-person camera
+// floats behind the killer (see the placement cvars below). Falls back
+// to third person when the killer is dead or not in the recorded data.
+//
+// TODO kinda experimental. For example, there is a bug
+// where there are visibly 2 lightning beams.
+CG_CVAR( cg_killcamFirstPerson, "cg_killcamFirstPerson", "0", CVAR_ARCHIVE )
 // Killcam camera placement: how far behind, above and to the side of
 // the killer's head the camera floats. The height and side offsets keep
 // the killer's model and the award icons above their head from covering
