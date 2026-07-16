@@ -104,6 +104,27 @@ void CG_SetContext( int contextNum ) {
 	cg_contextNum = contextNum;
 }
 
+// Sound wrappers that swallow sounds while the live context is being
+// processed hidden behind the killcam replay. See cg_local.h.
+qboolean cg_soundMuted = qfalse;
+
+#undef trap_S_StartSound
+#undef trap_S_StartLocalSound
+
+void CG_S_StartSoundWrapper( const vec3_t origin, int entityNum, int entchannel, sfxHandle_t sfx ) {
+	if ( cg_soundMuted ) {
+		return;
+	}
+	trap_S_StartSound( origin, entityNum, entchannel, sfx );
+}
+
+void CG_S_StartLocalSoundWrapper( sfxHandle_t sfx, int channelNum ) {
+	if ( cg_soundMuted ) {
+		return;
+	}
+	trap_S_StartLocalSound( sfx, channelNum );
+}
+
 #define DECLARE_CG_CVAR
 	#include "cg_cvar.h"
 #undef DECLARE_CG_CVAR

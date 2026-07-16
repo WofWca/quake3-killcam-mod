@@ -18,6 +18,27 @@ static localEntity_t	*cg_freeLocalEntitiesCtx[CG_NUM_CONTEXTS];	// single linked
 
 /*
 ===================
+CG_InitLocalEntitiesCtx
+
+Resets one context's local entity pool (e.g. when a killcam replay starts)
+===================
+*/
+void	CG_InitLocalEntitiesCtx( int ctx ) {
+	int		i;
+	localEntity_t	*localEntities = cg_localEntitiesCtx[ctx];
+	localEntity_t	*active = &cg_activeLocalEntitiesCtx[ctx];
+
+	memset( localEntities, 0, sizeof( cg_localEntitiesCtx[ctx] ) );
+	active->next = active;
+	active->prev = active;
+	cg_freeLocalEntitiesCtx[ctx] = localEntities;
+	for ( i = 0 ; i < MAX_LOCAL_ENTITIES - 1 ; i++ ) {
+		localEntities[i].next = &localEntities[i+1];
+	}
+}
+
+/*
+===================
 CG_InitLocalEntities
 
 This is called at startup and for tournement restarts.
@@ -25,19 +46,10 @@ Initializes all contexts.
 ===================
 */
 void	CG_InitLocalEntities( void ) {
-	int		ctx, i;
+	int		ctx;
 
 	for ( ctx = 0 ; ctx < CG_NUM_CONTEXTS ; ctx++ ) {
-		localEntity_t	*localEntities = cg_localEntitiesCtx[ctx];
-		localEntity_t	*active = &cg_activeLocalEntitiesCtx[ctx];
-
-		memset( localEntities, 0, sizeof( cg_localEntitiesCtx[ctx] ) );
-		active->next = active;
-		active->prev = active;
-		cg_freeLocalEntitiesCtx[ctx] = localEntities;
-		for ( i = 0 ; i < MAX_LOCAL_ENTITIES - 1 ; i++ ) {
-			localEntities[i].next = &localEntities[i+1];
-		}
+		CG_InitLocalEntitiesCtx( ctx );
 	}
 }
 
