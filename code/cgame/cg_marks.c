@@ -26,6 +26,29 @@ static int			markTotalCtx[CG_NUM_CONTEXTS];
 
 /*
 ===================
+CG_InitMarkPolysCtx
+
+Resets one context's mark pool (e.g. when a killcam replay starts)
+===================
+*/
+void	CG_InitMarkPolysCtx( int ctx ) {
+	int		i;
+	markPoly_t	*markPolys = cg_markPolysCtx[ctx];
+	markPoly_t	*active = &cg_activeMarkPolysCtx[ctx];
+
+	memset( markPolys, 0, sizeof(cg_markPolysCtx[ctx]) );
+
+	active->nextMark = active;
+	active->prevMark = active;
+	cg_freeMarkPolysCtx[ctx] = markPolys;
+	for ( i = 0 ; i < MAX_MARK_POLYS - 1 ; i++ ) {
+		markPolys[i].nextMark = &markPolys[i+1];
+	}
+	markTotalCtx[ctx] = 0;
+}
+
+/*
+===================
 CG_InitMarkPolys
 
 This is called at startup and for tournement restarts.
@@ -33,21 +56,10 @@ Initializes all contexts.
 ===================
 */
 void	CG_InitMarkPolys( void ) {
-	int		ctx, i;
+	int		ctx;
 
 	for ( ctx = 0 ; ctx < CG_NUM_CONTEXTS ; ctx++ ) {
-		markPoly_t	*markPolys = cg_markPolysCtx[ctx];
-		markPoly_t	*active = &cg_activeMarkPolysCtx[ctx];
-
-		memset( markPolys, 0, sizeof(cg_markPolysCtx[ctx]) );
-
-		active->nextMark = active;
-		active->prevMark = active;
-		cg_freeMarkPolysCtx[ctx] = markPolys;
-		for ( i = 0 ; i < MAX_MARK_POLYS - 1 ; i++ ) {
-			markPolys[i].nextMark = &markPolys[i+1];
-		}
-		markTotalCtx[ctx] = 0;
+		CG_InitMarkPolysCtx( ctx );
 	}
 }
 
@@ -391,6 +403,24 @@ int			oldtime;
 CL_ClearParticles
 ===============
 */
+void CG_ClearParticlesCtx (int ctx)
+{
+	int		i;
+	cparticle_t	*pool = particlesCtx[ctx];
+
+	memset( pool, 0, sizeof(particlesCtx[ctx]) );
+
+	free_particlesCtx[ctx] = &pool[0];
+	active_particlesCtx[ctx] = NULL;
+
+	for (i=0 ;i<cl_numparticles ; i++)
+	{
+		pool[i].next = &pool[i+1];
+		pool[i].type = 0;
+	}
+	pool[cl_numparticles-1].next = NULL;
+}
+
 void CG_ClearParticles (void)
 {
 	int		i;
@@ -399,19 +429,7 @@ void CG_ClearParticles (void)
 	// clears all contexts
 	for (ctx=0 ; ctx<CG_NUM_CONTEXTS ; ctx++)
 	{
-		cparticle_t	*pool = particlesCtx[ctx];
-
-		memset( pool, 0, sizeof(particlesCtx[ctx]) );
-
-		free_particlesCtx[ctx] = &pool[0];
-		active_particlesCtx[ctx] = NULL;
-
-		for (i=0 ;i<cl_numparticles ; i++)
-		{
-			pool[i].next = &pool[i+1];
-			pool[i].type = 0;
-		}
-		pool[cl_numparticles-1].next = NULL;
+		CG_ClearParticlesCtx (ctx);
 	}
 
 	oldtime = cg.time;
