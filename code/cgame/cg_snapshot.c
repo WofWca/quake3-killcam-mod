@@ -28,10 +28,10 @@ CG_ProcessSnapshots reads from the ring instead of trap_GetSnapshot.
 // afford a longer history in less memory.
 #define KILLCAM_SNAPSHOT_BACKUP	128
 
-// death replay timing (all in milliseconds)
-#define KILLCAM_PREROLL		2500	// replay starts this long before the death...
-#define KILLCAM_POSTROLL	1500	// ...and ends this long after it (gibs!)
-#define KILLCAM_START_DELAY	400		// how long after dying the view switches
+// when the preroll gets clamped to the oldest recorded snapshot, keep
+// this much slack (ms) so playback doesn't ride the ring's eviction
+// edge and abort mid-replay
+#define KILLCAM_CLAMP_MARGIN	200
 
 static snapshot_t	cg_killcamSnapshots[KILLCAM_SNAPSHOT_BACKUP];
 // total snapshots ever recorded; snapshot n (1-based) lives in
@@ -67,6 +67,27 @@ qboolean CG_KillcamRunning( void ) {
 
 /*
 ==================
+CG_KillcamOldestSnapshotTime
+
+serverTime of the oldest snapshot still in the ring, or -1 if none
+==================
+*/
+static int CG_KillcamOldestSnapshotTime( void ) {
+	int		oldest;
+
+	if ( cg_killcamRecordedCount == 0 ) {
+		return -1;
+	}
+	oldest = cg_killcamRecordedCount - KILLCAM_SNAPSHOT_BACKUP;
+	if ( oldest < 0 ) {
+		oldest = 0;
+	}
+	return cg_killcamSnapshots[oldest % KILLCAM_SNAPSHOT_BACKUP].serverTime;
+}
+
+
+/*
+==================
 CG_KillcamHasSnapshotFor
 
 qtrue if the ring still holds a snapshot at or before the given time,
@@ -74,16 +95,9 @@ i.e. a killcam view of that time can be rendered
 ==================
 */
 qboolean CG_KillcamHasSnapshotFor( int time ) {
-	int		oldest;
+	int		oldestTime = CG_KillcamOldestSnapshotTime();
 
-	if ( cg_killcamRecordedCount == 0 ) {
-		return qfalse;
-	}
-	oldest = cg_killcamRecordedCount - KILLCAM_SNAPSHOT_BACKUP;
-	if ( oldest < 0 ) {
-		oldest = 0;
-	}
-	return cg_killcamSnapshots[oldest % KILLCAM_SNAPSHOT_BACKUP].serverTime <= time;
+	return oldestTime != -1 && oldestTime <= time;
 }
 
 
@@ -205,9 +219,14 @@ int CG_KillcamUpdate( int serverTime ) {
 
 	// death replay in progress?
 	if ( cg_killcamRunning && cg_killcamMode == KILLCAM_KILLER ) {
+		int postroll = cg_killcamPostroll.integer;
+
+		if ( postroll < 0 ) {
+			postroll = 0;
+		}
 		if (
 			// replay finished
-			serverTime - cg_killcamCurDelay > cg_killcamDeathTime + KILLCAM_POSTROLL
+			serverTime - cg_killcamCurDelay > cg_killcamDeathTime + postroll
 			// the player respawned (e.g. clicked): hand the view back
 			|| cg.predictedPlayerState.stats[STAT_HEALTH] > 0
 			// recording outran the playback; can't render this frame
@@ -221,10 +240,20 @@ int CG_KillcamUpdate( int serverTime ) {
 
 	// scheduled death replay waiting to start?
 	if ( cg_killcamDeathPending ) {
-		int replayStartTime = cg_killcamDeathTime - KILLCAM_PREROLL;
+		int		replayStartTime;
+		int		oldestTime;
+		int		preroll = cg_killcamPreroll.integer;
+		int		startDelay = cg_killcamStartDelay.integer;
+
+		if ( preroll < 0 ) {
+			preroll = 0;
+		}
+		if ( startDelay < 0 ) {
+			startDelay = 0;
+		}
 
 		// let the death register on screen before switching views
-		if ( serverTime < cg_killcamDeathTime + KILLCAM_START_DELAY ) {
+		if ( serverTime < cg_killcamDeathTime + startDelay ) {
 			return 0;
 		}
 		cg_killcamDeathPending = qfalse;
@@ -233,9 +262,23 @@ int CG_KillcamUpdate( int serverTime ) {
 		if ( cg.predictedPlayerState.stats[STAT_HEALTH] > 0 || cg.intermissionStarted ) {
 			return 0;
 		}
-		// not enough recorded history (e.g. very high snaps rate)
-		if ( !CG_KillcamHasSnapshotFor( replayStartTime ) ) {
+
+		// skip if not even the death itself is in the recorded history
+		// (e.g. very high snaps rate combined with a long start delay)
+		oldestTime = CG_KillcamOldestSnapshotTime();
+		if ( oldestTime == -1 || oldestTime > cg_killcamDeathTime ) {
 			return 0;
+		}
+
+		// if the ring no longer holds the full preroll, start at the
+		// oldest snapshot we still have (with some slack so playback
+		// doesn't ride the ring's eviction edge)
+		replayStartTime = cg_killcamDeathTime - preroll;
+		if ( replayStartTime < oldestTime + KILLCAM_CLAMP_MARGIN ) {
+			replayStartTime = oldestTime + KILLCAM_CLAMP_MARGIN;
+			if ( replayStartTime > cg_killcamDeathTime ) {
+				replayStartTime = cg_killcamDeathTime;
+			}
 		}
 
 		cg_killcamCurDelay = serverTime - replayStartTime;
