@@ -1387,6 +1387,8 @@ void CG_OutOfAmmoChange( void );	// should this be in pmove?
 // cg_marks.c
 //
 void	CG_InitMarkPolys( void );
+void	CG_InitMarkPolysCtx( int ctx );
+void	CG_ClearParticlesCtx( int ctx );
 void	CG_AddMarks( void );
 void	CG_ImpactMark( qhandle_t markShader, 
 				    const vec3_t origin, const vec3_t dir, 
@@ -1399,6 +1401,7 @@ void	CG_ImpactMark( qhandle_t markShader,
 // cg_localents.c
 //
 void	CG_InitLocalEntities( void );
+void	CG_InitLocalEntitiesCtx( int ctx );
 localEntity_t	*CG_AllocLocalEntity( void );
 void	CG_AddLocalEntities( void );
 
@@ -1440,6 +1443,12 @@ localEntity_t *CG_MakeExplosion( const vec3_t origin, const vec3_t dir,
 // cg_snapshot.c
 //
 void CG_ProcessSnapshots( void );
+
+// killcam snapshot recording / delayed playback
+qboolean CG_KillcamRunning( void );
+qboolean CG_KillcamHasSnapshotFor( int time );
+void CG_KillcamStart( int time );
+void CG_KillcamStop( void );
 
 //
 // cg_info.c
@@ -1577,6 +1586,18 @@ void		trap_S_StopLoopingSound(int entnum);
 
 // a local sound is always played full volume
 void		trap_S_StartLocalSound( sfxHandle_t sfx, int channelNum );
+
+// Killcam: while the killcam replay is on screen, the live context keeps
+// processing snapshots hidden in the background; cg_soundMuted makes these
+// wrappers swallow its sounds. Redirecting the trap names here keeps the
+// call sites unchanged (cg_main.c and cg_syscalls.c #undef these to reach
+// the real syscalls).
+extern qboolean cg_soundMuted;
+void		CG_S_StartSoundWrapper( const vec3_t origin, int entityNum, int entchannel, sfxHandle_t sfx );
+void		CG_S_StartLocalSoundWrapper( sfxHandle_t sfx, int channelNum );
+#define trap_S_StartSound CG_S_StartSoundWrapper
+#define trap_S_StartLocalSound CG_S_StartLocalSoundWrapper
+
 void		trap_S_ClearLoopingSounds( qboolean killall );
 void		trap_S_AddLoopingSound( int entityNum, const vec3_t origin, const vec3_t velocity, sfxHandle_t sfx );
 void		trap_S_AddRealLoopingSound( int entityNum, const vec3_t origin, const vec3_t velocity, sfxHandle_t sfx );

@@ -129,5 +129,9 @@ CG_CVAR( cg_teamColors, "cg_teamColors", "", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_deadBodyDarken, "cg_deadBodyDarken", "1", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_fovAdjust, "cg_fovAdjust", "0", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_followKiller, "cg_followKiller", "0", CVAR_ARCHIVE, NULL )
+CG_CVAR( cg_killcamTest, "cg_killcamTest", "0", 0,
+	"Killcam development / testing: when > 0, render the world this many "
+	"milliseconds in the past (from your own point of view), replayed from "
+	"recorded snapshots in the killcam context. 0 = off." )
 
 #undef CG_CVAR
