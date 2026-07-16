@@ -781,35 +781,33 @@ static void CG_FirstFrame( void )
 }
 
 
+// qtrue while the live context is processed hidden behind the killcam
+// replay: no rendering, no engine-global side effects (its sounds are
+// muted separately via cg_soundMuted)
+static qboolean cg_passHidden = qfalse;
+
 /*
 =================
-CG_DrawActiveFrame
+CG_DrawActiveFrameCtx
 
-Generates and draws a game scene and status information at the given time.
+Processes the current context up to the given time and, unless this is
+a hidden pass, generates and draws its scene and status information.
 =================
 */
-void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demoPlayback ) {
+static void CG_DrawActiveFrameCtx( int serverTime, stereoFrame_t stereoView, qboolean demoPlayback ) {
 	int		inwater;
 
 	cg.time = serverTime;
 	cg.demoPlayback = demoPlayback;
 
-	// update cvars
-	CG_UpdateCvars();
+	if ( !cg_passHidden ) {
+		// any looped sounds will be respecified as entities
+		// are added to the render list
+		trap_S_ClearLoopingSounds(qfalse);
 
-	// if we are only updating the screen as a loading
-	// pacifier, don't even try to read snapshots
-	if ( cg.infoScreenText[0] != 0 ) {
-		CG_DrawInformation();
-		return;
+		// clear all the render lists
+		trap_R_ClearScene();
 	}
-
-	// any looped sounds will be respecified as entities
-	// are added to the render list
-	trap_S_ClearLoopingSounds(qfalse);
-
-	// clear all the render lists
-	trap_R_ClearScene();
 
 	// set up cg.snap and possibly cg.nextSnap
 	CG_ProcessSnapshots();
@@ -817,15 +815,19 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 	// if we haven't received any snapshots yet, all
 	// we can draw is the information screen
 	if ( !cg.snap || ( cg.snap->snapFlags & SNAPFLAG_NOT_ACTIVE ) ) {
-		CG_DrawInformation();
+		if ( !cg_passHidden ) {
+			CG_DrawInformation();
+		}
 		return;
 	}
 
-	// let the client system know what our weapon and zoom settings are
-	trap_SetUserCmdValue( cg.weaponSelect, cg.zoomSensitivity );
+	if ( cg_contextNum == CG_CONTEXT_LIVE ) {
+		// let the client system know what our weapon and zoom settings are
+		trap_SetUserCmdValue( cg.weaponSelect, cg.zoomSensitivity );
 
-	if ( cg.clientFrame == 0 )
-		CG_FirstFrame();
+		if ( cg.clientFrame == 0 )
+			CG_FirstFrame();
+	}
 
 	// update cg.predictedPlayerState
 	CG_PredictPlayerState();
@@ -833,7 +835,9 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 	// decide on third person view
 	cg.renderingThirdPerson = cg_thirdPerson.integer || (cg.snap->ps.stats[STAT_HEALTH] <= 0);
 
-	CG_TrackClientTeamChange();
+	if ( cg_contextNum == CG_CONTEXT_LIVE ) {
+		CG_TrackClientTeamChange();
+	}
 
 	// follow killer
 	if ( cg.followTime && cg.followTime < cg.time ) {
@@ -846,19 +850,21 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 	// build cg.refdef
 	inwater = CG_CalcViewValues();
 
-	// first person blend blobs, done after AnglesToAxis
-	if ( !cg.renderingThirdPerson ) {
-		CG_DamageBlendBlob();
-	}
+	if ( !cg_passHidden ) {
+		// first person blend blobs, done after AnglesToAxis
+		if ( !cg.renderingThirdPerson ) {
+			CG_DamageBlendBlob();
+		}
 
-	// build the render lists
-	if ( !cg.hyperspace ) {
-		CG_AddPacketEntities();	// alter calcViewValues, so predicted player state is correct
-		CG_AddMarks();
-		CG_AddParticles ();
-		CG_AddLocalEntities();
+		// build the render lists
+		if ( !cg.hyperspace ) {
+			CG_AddPacketEntities();	// alter calcViewValues, so predicted player state is correct
+			CG_AddMarks();
+			CG_AddParticles ();
+			CG_AddLocalEntities();
+		}
+		CG_AddViewWeapon( &cg.predictedPlayerState );
 	}
-	CG_AddViewWeapon( &cg.predictedPlayerState );
 
 	// add buffered sounds
 	CG_PlayBufferedSounds();
@@ -869,7 +875,7 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 #endif
 
 	// finish up the rest of the refdef
-	if ( cg.testModelEntity.hModel ) {
+	if ( !cg_passHidden && cg.testModelEntity.hModel ) {
 		CG_AddTestModel();
 	}
 	cg.refdef.time = cg.time;
@@ -878,8 +884,10 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 	// warning sounds when powerup is wearing off
 	CG_PowerupTimerSounds();
 
-	// update audio positions
-	trap_S_Respatialize( cg.snap->ps.clientNum, cg.refdef.vieworg, cg.refdef.viewaxis, inwater );
+	if ( !cg_passHidden ) {
+		// update audio positions
+		trap_S_Respatialize( cg.snap->ps.clientNum, cg.refdef.vieworg, cg.refdef.viewaxis, inwater );
+	}
 
 	// make sure the lagometerSample and frame timing isn't done twice when in stereo
 	if ( stereoView != STEREO_RIGHT ) {
@@ -888,31 +896,97 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 			cg.frametime = 0;
 		}
 		cg.oldTime = cg.time;
-		CG_AddLagometerFrameInfo();
+		if ( cg_contextNum == CG_CONTEXT_LIVE ) {
+			CG_AddLagometerFrameInfo();
+		}
 	}
-	if (cg_timescale.value != cg_timescaleFadeEnd.value) {
-		if (cg_timescale.value < cg_timescaleFadeEnd.value) {
-			cg_timescale.value += cg_timescaleFadeSpeed.value * ((float)cg.frametime) / 1000;
-			if (cg_timescale.value > cg_timescaleFadeEnd.value)
-				cg_timescale.value = cg_timescaleFadeEnd.value;
-		}
-		else {
-			cg_timescale.value -= cg_timescaleFadeSpeed.value * ((float)cg.frametime) / 1000;
-			if (cg_timescale.value < cg_timescaleFadeEnd.value)
-				cg_timescale.value = cg_timescaleFadeEnd.value;
-		}
-		if (cg_timescaleFadeSpeed.value) {
-			trap_Cvar_Set("timescale", va("%f", cg_timescale.value));
+	if ( cg_contextNum == CG_CONTEXT_LIVE ) {
+		if (cg_timescale.value != cg_timescaleFadeEnd.value) {
+			if (cg_timescale.value < cg_timescaleFadeEnd.value) {
+				cg_timescale.value += cg_timescaleFadeSpeed.value * ((float)cg.frametime) / 1000;
+				if (cg_timescale.value > cg_timescaleFadeEnd.value)
+					cg_timescale.value = cg_timescaleFadeEnd.value;
+			}
+			else {
+				cg_timescale.value -= cg_timescaleFadeSpeed.value * ((float)cg.frametime) / 1000;
+				if (cg_timescale.value < cg_timescaleFadeEnd.value)
+					cg_timescale.value = cg_timescaleFadeEnd.value;
+			}
+			if (cg_timescaleFadeSpeed.value) {
+				trap_Cvar_Set("timescale", va("%f", cg_timescale.value));
+			}
 		}
 	}
 
-	// actually issue the rendering calls
-	CG_DrawActive( stereoView );
+	if ( !cg_passHidden ) {
+		// actually issue the rendering calls
+		CG_DrawActive( stereoView );
+	}
 
 	// this counter will be bumped for every valid scene we generate
 	cg.clientFrame++;
 
 	if ( cg_stats.integer ) {
 		CG_Printf( "cg.clientFrame:%i\n", cg.clientFrame );
+	}
+}
+
+/*
+=================
+CG_DrawActiveFrame
+
+Generates and draws a game scene and status information at the given time.
+
+When the killcam is active, the live context is still processed every
+frame (hidden and muted, so its state stays current), and the killcam
+context is processed and rendered at a delayed time from recorded
+snapshots.
+=================
+*/
+void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demoPlayback ) {
+	int			killcamDelay;
+	qboolean	killcamView;
+
+	CG_SetContext( CG_CONTEXT_LIVE );
+
+	// update cvars
+	CG_UpdateCvars();
+
+	// if we are only updating the screen as a loading
+	// pacifier, don't even try to read snapshots
+	if ( cg.infoScreenText[0] != 0 ) {
+		CG_DrawInformation();
+		return;
+	}
+
+	// killcam test mode: replay the world cg_killcamTest milliseconds
+	// in the past
+	killcamDelay = cg_killcamTest.integer;
+	if ( killcamDelay > 0 ) {
+		// only start once enough snapshot history has been recorded;
+		// until then keep rendering the live view
+		if ( !CG_KillcamRunning() &&
+			CG_KillcamHasSnapshotFor( serverTime - killcamDelay ) )
+		{
+			CG_KillcamStart( serverTime - killcamDelay );
+		}
+	} else if ( CG_KillcamRunning() ) {
+		CG_KillcamStop();
+	}
+
+	killcamView = CG_KillcamRunning() &&
+		CG_KillcamHasSnapshotFor( serverTime - killcamDelay );
+
+	cg_passHidden = killcamView;
+	cg_soundMuted = killcamView;
+	CG_DrawActiveFrameCtx( serverTime, stereoView, demoPlayback );
+	cg_passHidden = qfalse;
+	cg_soundMuted = qfalse;
+
+	if ( killcamView ) {
+		CG_SetContext( CG_CONTEXT_KILLCAM );
+		// the replayed stream is conceptually a demo
+		CG_DrawActiveFrameCtx( serverTime - killcamDelay, stereoView, qtrue );
+		CG_SetContext( CG_CONTEXT_LIVE );
 	}
 }
