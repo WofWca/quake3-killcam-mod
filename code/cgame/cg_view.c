@@ -596,6 +596,62 @@ static void CG_DamageBlendBlob( void ) {
 }
 
 
+// how far the killcam camera floats behind the killer's head
+#define KILLCAM_CAMERA_RANGE	64
+
+/*
+===============
+CG_KillcamCalcKillerView
+
+Death replay camera: place the camera at (slightly behind) the killer,
+aiming at the victim -- the recorded local player. Returns qfalse if the
+killer isn't in the replayed snapshot (out of the victim's PVS), in
+which case the caller keeps the normal view of the victim.
+===============
+*/
+static qboolean CG_KillcamCalcKillerView( void ) {
+	static const vec3_t	camMins = { -6, -6, -6 };
+	static const vec3_t	camMaxs = { 6, 6, 6 };
+	centity_t	*killer;
+	trace_t		trace;
+	vec3_t		eye, target, forward, camOrg;
+	int			killerNum;
+
+	killerNum = CG_KillcamKillerNum();
+	if ( killerNum < 0 || killerNum >= MAX_CLIENTS ||
+		killerNum == cg.snap->ps.clientNum )
+	{
+		return qfalse;
+	}
+
+	killer = &cg_entities[killerNum];
+	if ( !killer->currentValid ) {
+		return qfalse;
+	}
+
+	CG_CalcEntityLerpPositions( killer );
+	VectorCopy( killer->lerpOrigin, eye );
+	eye[2] += DEFAULT_VIEWHEIGHT;
+
+	VectorCopy( cg.predictedPlayerState.origin, target );
+	target[2] += 8;		// roughly the middle of the body
+
+	VectorSubtract( target, eye, forward );
+	if ( VectorNormalize( forward ) < 1 ) {
+		// killer is right on top of the victim
+		return qfalse;
+	}
+	vectoangles( forward, cg.refdefViewAngles );
+
+	// back away from the killer's head so their model is visible,
+	// without going into a wall
+	VectorMA( eye, -KILLCAM_CAMERA_RANGE, forward, camOrg );
+	CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killerNum, MASK_SOLID );
+	VectorCopy( trace.endpos, cg.refdef.vieworg );
+
+	return qtrue;
+}
+
 /*
 ===============
 CG_CalcViewValues
@@ -667,7 +723,12 @@ static int CG_CalcViewValues( void ) {
 		}
 	}
 
-	if ( cg.renderingThirdPerson ) {
+	if ( cg_contextNum == CG_CONTEXT_KILLCAM &&
+		CG_KillcamMode() == KILLCAM_KILLER &&
+		CG_KillcamCalcKillerView() )
+	{
+		// camera was placed at the killer
+	} else if ( cg.renderingThirdPerson ) {
 		// back away from character
 		CG_OffsetThirdPersonView();
 	} else {
@@ -835,6 +896,12 @@ static void CG_DrawActiveFrameCtx( int serverTime, stereoFrame_t stereoView, qbo
 	// decide on third person view
 	cg.renderingThirdPerson = cg_thirdPerson.integer || (cg.snap->ps.stats[STAT_HEALTH] <= 0);
 
+	if ( cg_contextNum == CG_CONTEXT_KILLCAM && CG_KillcamMode() == KILLCAM_KILLER ) {
+		// the killcam camera is at the killer, looking at the victim,
+		// so the victim's own body must be drawn
+		cg.renderingThirdPerson = qtrue;
+	}
+
 	if ( cg_contextNum == CG_CONTEXT_LIVE ) {
 		CG_TrackClientTeamChange();
 	}
@@ -959,23 +1026,9 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 		return;
 	}
 
-	// killcam test mode: replay the world cg_killcamTest milliseconds
-	// in the past
-	killcamDelay = cg_killcamTest.integer;
-	if ( killcamDelay > 0 ) {
-		// only start once enough snapshot history has been recorded;
-		// until then keep rendering the live view
-		if ( !CG_KillcamRunning() &&
-			CG_KillcamHasSnapshotFor( serverTime - killcamDelay ) )
-		{
-			CG_KillcamStart( serverTime - killcamDelay );
-		}
-	} else if ( CG_KillcamRunning() ) {
-		CG_KillcamStop();
-	}
-
-	killcamView = CG_KillcamRunning() &&
-		CG_KillcamHasSnapshotFor( serverTime - killcamDelay );
+	// killcam: death replay / test mode
+	killcamDelay = CG_KillcamUpdate( serverTime );
+	killcamView = killcamDelay > 0;
 
 	cg_passHidden = killcamView;
 	cg_soundMuted = killcamView;
