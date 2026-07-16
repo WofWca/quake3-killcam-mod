@@ -99,6 +99,16 @@ static void CG_Obituary( entityState_t *ent ) {
 
 	following = cg.snap->ps.pm_flags & PMF_FOLLOW;
 
+	// killcam: replay own deaths caused by another player
+	// (CG_KillcamScheduleDeathReplay ignores obituaries that the replay
+	// itself re-fires in the killcam context)
+	if ( target == cg.snap->ps.clientNum && !following &&
+		attacker != target && attacker != ENTITYNUM_WORLD &&
+		cg_killcam.integer )
+	{
+		CG_KillcamScheduleDeathReplay( attacker, cg.time );
+	}
+
 	message2 = "";
 
 	// check for single client messages
