@@ -598,6 +598,9 @@ static void CG_DamageBlendBlob( void ) {
 
 // how far the killcam camera floats behind the killer's head
 #define KILLCAM_CAMERA_RANGE	64
+// how far above the killer's head the camera floats, so that the
+// killer's model doesn't cover the victim at the center of the screen
+#define KILLCAM_CAMERA_HEIGHT	24
 
 /*
 ===============
@@ -638,6 +641,13 @@ static qboolean CG_KillcamCalcKillerView( void ) {
 	CG_CalcEntityLerpPositions( killer );
 	VectorCopy( killer->lerpOrigin, eye );
 	eye[2] += DEFAULT_VIEWHEIGHT;
+
+	// raise the camera above the killer's head, tracing so that a low
+	// ceiling doesn't put it in solid
+	VectorCopy( eye, camOrg );
+	camOrg[2] += KILLCAM_CAMERA_HEIGHT;
+	CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killerNum, MASK_SOLID );
+	VectorCopy( trace.endpos, eye );
 
 	VectorCopy( cg.predictedPlayerState.origin, target );
 	target[2] += 8;		// roughly the middle of the body
