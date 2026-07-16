@@ -6,6 +6,155 @@
 #include "cg_local.h"
 
 
+/*
+=====================================================================
+
+KILLCAM SNAPSHOT RECORDING AND PLAYBACK
+
+Every snapshot the live context reads from the engine is copied into a
+ring buffer. The killcam context replays them with a time delay: its
+CG_ProcessSnapshots reads from the ring instead of trap_GetSnapshot.
+
+=====================================================================
+*/
+
+// How many of the most recent snapshots are kept for killcam playback.
+// The engine itself only buffers PACKET_BACKUP (32); a useful killcam
+// delay needs more history. Raw snapshot_t storage is large (~55 KB
+// each): 64 slots is ~3.4 MB of bss and covers ~3.2 s at snaps 20
+// (~1.6 s at snaps 40).
+// TODO: consider compressing (delta encoding like the engine's) to
+// afford a longer history.
+#define KILLCAM_SNAPSHOT_BACKUP	64
+
+static snapshot_t	cg_killcamSnapshots[KILLCAM_SNAPSHOT_BACKUP];
+// total snapshots ever recorded; snapshot n (1-based) lives in
+// slot (n-1) % KILLCAM_SNAPSHOT_BACKUP until overwritten
+static int			cg_killcamRecordedCount;
+// the killcam context's read cursor: how many recorded snapshots it has
+// consumed. Counterpart of cgs.processedSnapshotNum for the live context.
+static int			cg_killcamProcessedNum;
+static qboolean		cg_killcamRunning;
+
+
+static void CG_KillcamRecordSnapshot( const snapshot_t *snap ) {
+	if ( snap->snapFlags & SNAPFLAG_NOT_ACTIVE ) {
+		return;
+	}
+	cg_killcamSnapshots[cg_killcamRecordedCount % KILLCAM_SNAPSHOT_BACKUP] = *snap;
+	cg_killcamRecordedCount++;
+}
+
+
+qboolean CG_KillcamRunning( void ) {
+	return cg_killcamRunning;
+}
+
+
+/*
+==================
+CG_KillcamHasSnapshotFor
+
+qtrue if the ring still holds a snapshot at or before the given time,
+i.e. a killcam view of that time can be rendered
+==================
+*/
+qboolean CG_KillcamHasSnapshotFor( int time ) {
+	int		oldest;
+
+	if ( cg_killcamRecordedCount == 0 ) {
+		return qfalse;
+	}
+	oldest = cg_killcamRecordedCount - KILLCAM_SNAPSHOT_BACKUP;
+	if ( oldest < 0 ) {
+		oldest = 0;
+	}
+	return cg_killcamSnapshots[oldest % KILLCAM_SNAPSHOT_BACKUP].serverTime <= time;
+}
+
+
+/*
+==================
+CG_KillcamStart
+
+Resets the killcam context and points its snapshot cursor at the newest
+recorded snapshot at or before the given playback time, so the first
+killcam frame doesn't fast-forward through (and fire the events of)
+older history. CG_ProcessSnapshots does the rest on the next killcam
+frame, just like after a fresh connect.
+==================
+*/
+void CG_KillcamStart( int time ) {
+	cgContext_t	*kc = &cg_contexts[CG_CONTEXT_KILLCAM];
+	int			oldest;
+	int			i;
+
+	memset( kc, 0, sizeof( *kc ) );
+	kc->state.clientNum = cg_contexts[CG_CONTEXT_LIVE].state.clientNum;
+	// the replayed stream is conceptually a demo: interpolate instead of
+	// predicting, never send anything to the server
+	kc->state.demoPlayback = qtrue;
+
+	CG_InitLocalEntitiesCtx( CG_CONTEXT_KILLCAM );
+	CG_InitMarkPolysCtx( CG_CONTEXT_KILLCAM );
+	CG_ClearParticlesCtx( CG_CONTEXT_KILLCAM );
+
+	oldest = cg_killcamRecordedCount - KILLCAM_SNAPSHOT_BACKUP;
+	if ( oldest < 0 ) {
+		oldest = 0;
+	}
+	cg_killcamProcessedNum = oldest;
+	for ( i = cg_killcamRecordedCount - 1 ; i >= oldest ; i-- ) {
+		if ( cg_killcamSnapshots[i % KILLCAM_SNAPSHOT_BACKUP].serverTime <= time ) {
+			cg_killcamProcessedNum = i;
+			break;
+		}
+	}
+
+	cg_killcamRunning = qtrue;
+}
+
+
+void CG_KillcamStop( void ) {
+	cg_killcamRunning = qfalse;
+}
+
+
+/*
+==================
+CG_KillcamReadNextSnapshot
+
+The killcam context's counterpart of CG_ReadNextSnapshot: reads from the
+ring buffer instead of the client system.
+==================
+*/
+static snapshot_t *CG_KillcamReadNextSnapshot( void ) {
+	snapshot_t	*dest;
+	int			oldestAvailable;
+
+	// if playback fell behind the recording, skip the overwritten ones
+	oldestAvailable = cg_killcamRecordedCount - KILLCAM_SNAPSHOT_BACKUP;
+	if ( cg_killcamProcessedNum < oldestAvailable ) {
+		cg_killcamProcessedNum = oldestAvailable;
+	}
+
+	if ( cg_killcamProcessedNum >= cg_killcamRecordedCount ) {
+		// nothing left to read
+		return NULL;
+	}
+
+	// decide which of the two slots to load it into
+	if ( cg.snap == &cg.activeSnapshots[0] ) {
+		dest = &cg.activeSnapshots[1];
+	} else {
+		dest = &cg.activeSnapshots[0];
+	}
+
+	*dest = cg_killcamSnapshots[cg_killcamProcessedNum % KILLCAM_SNAPSHOT_BACKUP];
+	cg_killcamProcessedNum++;
+	return dest;
+}
+
 
 /*
 ==================
@@ -247,6 +396,10 @@ static snapshot_t *CG_ReadNextSnapshot( void ) {
 	qboolean	r;
 	snapshot_t	*dest;
 
+	if ( cg_contextNum == CG_CONTEXT_KILLCAM ) {
+		return CG_KillcamReadNextSnapshot();
+	}
+
 	if ( cg.latestSnapshotNum > cgs.processedSnapshotNum + 1000 ) {
 		CG_Printf( "WARNING: CG_ReadNextSnapshot: way out of range, %i > %i\n", 
 			cg.latestSnapshotNum, cgs.processedSnapshotNum );
@@ -272,6 +425,7 @@ static snapshot_t *CG_ReadNextSnapshot( void ) {
 		// if it succeeded, return
 		if ( r ) {
 			CG_AddLagometerSnapshotInfo( dest );
+			CG_KillcamRecordSnapshot( dest );
 			return dest;
 		}
 
@@ -318,7 +472,15 @@ void CG_ProcessSnapshots( void ) {
 	int				n;
 
 	// see what the latest snapshot the client system has is
-	trap_GetCurrentSnapshotNumber( &n, &cg.latestSnapshotTime );
+	if ( cg_contextNum == CG_CONTEXT_KILLCAM ) {
+		// the killcam context reads recorded snapshots instead
+		n = cg_killcamRecordedCount;
+		cg.latestSnapshotTime = cg_killcamRecordedCount > 0
+			? cg_killcamSnapshots[( cg_killcamRecordedCount - 1 ) % KILLCAM_SNAPSHOT_BACKUP].serverTime
+			: 0;
+	} else {
+		trap_GetCurrentSnapshotNumber( &n, &cg.latestSnapshotTime );
+	}
 	if ( n != cg.latestSnapshotNum ) {
 		if ( n < cg.latestSnapshotNum ) {
 			// this should never happen
