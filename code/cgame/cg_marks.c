@@ -13,28 +13,41 @@ MARK POLYS
 */
 
 
-markPoly_t	cg_activeMarkPolys;			// double linked list
-markPoly_t	*cg_freeMarkPolys;			// single linked list
-markPoly_t	cg_markPolys[MAX_MARK_POLYS];
-static		int	markTotal;
+static markPoly_t	cg_activeMarkPolysCtx[CG_NUM_CONTEXTS];		// double linked lists
+static markPoly_t	*cg_freeMarkPolysCtx[CG_NUM_CONTEXTS];		// single linked lists
+static markPoly_t	cg_markPolysCtx[CG_NUM_CONTEXTS][MAX_MARK_POLYS];
+static int			markTotalCtx[CG_NUM_CONTEXTS];
+
+// per-context views, switched by CG_SetContext()
+#define cg_activeMarkPolys	( cg_activeMarkPolysCtx[cg_contextNum] )
+#define cg_freeMarkPolys	( cg_freeMarkPolysCtx[cg_contextNum] )
+#define cg_markPolys		( cg_markPolysCtx[cg_contextNum] )
+#define markTotal			( markTotalCtx[cg_contextNum] )
 
 /*
 ===================
 CG_InitMarkPolys
 
-This is called at startup and for tournement restarts
+This is called at startup and for tournement restarts.
+Initializes all contexts.
 ===================
 */
 void	CG_InitMarkPolys( void ) {
-	int		i;
+	int		ctx, i;
 
-	memset( cg_markPolys, 0, sizeof(cg_markPolys) );
+	for ( ctx = 0 ; ctx < CG_NUM_CONTEXTS ; ctx++ ) {
+		markPoly_t	*markPolys = cg_markPolysCtx[ctx];
+		markPoly_t	*active = &cg_activeMarkPolysCtx[ctx];
 
-	cg_activeMarkPolys.nextMark = &cg_activeMarkPolys;
-	cg_activeMarkPolys.prevMark = &cg_activeMarkPolys;
-	cg_freeMarkPolys = cg_markPolys;
-	for ( i = 0 ; i < MAX_MARK_POLYS - 1 ; i++ ) {
-		cg_markPolys[i].nextMark = &cg_markPolys[i+1];
+		memset( markPolys, 0, sizeof(cg_markPolysCtx[ctx]) );
+
+		active->nextMark = active;
+		active->prevMark = active;
+		cg_freeMarkPolysCtx[ctx] = markPolys;
+		for ( i = 0 ; i < MAX_MARK_POLYS - 1 ; i++ ) {
+			markPolys[i].nextMark = &markPolys[i+1];
+		}
+		markTotalCtx[ctx] = 0;
 	}
 }
 
@@ -358,9 +371,14 @@ static int	numShaderAnims;
 #define		PARTICLE_GRAVITY	40
 #define		MAX_PARTICLES	1024
 
-cparticle_t	*active_particles, *free_particles;
-cparticle_t	particles[MAX_PARTICLES];
+static cparticle_t	*active_particlesCtx[CG_NUM_CONTEXTS], *free_particlesCtx[CG_NUM_CONTEXTS];
+static cparticle_t	particlesCtx[CG_NUM_CONTEXTS][MAX_PARTICLES];
 const int	cl_numparticles = MAX_PARTICLES;
+
+// per-context views, switched by CG_SetContext()
+#define active_particles	( active_particlesCtx[cg_contextNum] )
+#define free_particles		( free_particlesCtx[cg_contextNum] )
+#define particles			( particlesCtx[cg_contextNum] )
 
 qboolean	initparticles = qfalse;
 vec3_t		pvforward, pvright, pvup;
@@ -376,18 +394,25 @@ CL_ClearParticles
 void CG_ClearParticles (void)
 {
 	int		i;
+	int		ctx;
 
-	memset( particles, 0, sizeof(particles) );
-
-	free_particles = &particles[0];
-	active_particles = NULL;
-
-	for (i=0 ;i<cl_numparticles ; i++)
+	// clears all contexts
+	for (ctx=0 ; ctx<CG_NUM_CONTEXTS ; ctx++)
 	{
-		particles[i].next = &particles[i+1];
-		particles[i].type = 0;
+		cparticle_t	*pool = particlesCtx[ctx];
+
+		memset( pool, 0, sizeof(particlesCtx[ctx]) );
+
+		free_particlesCtx[ctx] = &pool[0];
+		active_particlesCtx[ctx] = NULL;
+
+		for (i=0 ;i<cl_numparticles ; i++)
+		{
+			pool[i].next = &pool[i+1];
+			pool[i].type = 0;
+		}
+		pool[cl_numparticles-1].next = NULL;
 	}
-	particles[cl_numparticles-1].next = NULL;
 
 	oldtime = cg.time;
 

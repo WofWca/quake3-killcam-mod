@@ -1150,12 +1150,32 @@ typedef struct {
 
 //==============================================================================
 
+// Multiple parallel world contexts, so that a second, independent game
+// state can be maintained and rendered alongside the live one (killcam).
+// Per-world state owned by other files (local entities, marks, particles,
+// solid entity lists) follows the same pattern with file-local arrays
+// indexed by cg_contextNum.
+#define CG_NUM_CONTEXTS		2
+#define CG_CONTEXT_LIVE		0
+#define CG_CONTEXT_KILLCAM	1
+
+typedef struct {
+	cg_t		state;
+	centity_t	entities[MAX_GENTITIES];
+} cgContext_t;
+
+extern	cgContext_t		cg_contexts[CG_NUM_CONTEXTS];
+extern	cgContext_t		*cgc;			// current context, never NULL
+extern	int				cg_contextNum;	// index of cgc within cg_contexts
+
+// All existing code transparently accesses the current context
+// through these.
+#define cg			(cgc->state)
+#define cg_entities	(cgc->entities)
+
 extern	cgs_t			cgs;
-extern	cg_t			cg;
-extern	centity_t		cg_entities[MAX_GENTITIES];
 extern	weaponInfo_t	cg_weapons[MAX_WEAPONS];
 extern	itemInfo_t		cg_items[MAX_ITEMS];
-extern	markPoly_t		cg_markPolys[MAX_MARK_POLYS];
 
 #define EXTERN_CG_CVAR
 	#include "cg_cvar.h"
@@ -1167,6 +1187,7 @@ extern const char		*eventnames[EV_MAX];
 //
 // cg_main.c
 //
+void CG_SetContext( int contextNum );
 const char *CG_ConfigString( int index );
 const char *CG_Argv( int arg );
 
