@@ -209,7 +209,7 @@ int CG_KillcamUpdate( int serverTime ) {
 			// replay finished
 			serverTime - cg_killcamCurDelay > cg_killcamDeathTime + KILLCAM_POSTROLL
 			// the player respawned (e.g. clicked): hand the view back
-			|| ( cg.snap && cg.snap->ps.stats[STAT_HEALTH] > 0 )
+			|| cg.predictedPlayerState.stats[STAT_HEALTH] > 0
 			// recording outran the playback; can't render this frame
 			|| !CG_KillcamHasSnapshotFor( serverTime - cg_killcamCurDelay ) )
 		{
@@ -230,7 +230,7 @@ int CG_KillcamUpdate( int serverTime ) {
 		cg_killcamDeathPending = qfalse;
 
 		// skip if the player already respawned or the game is ending
-		if ( !cg.snap || cg.snap->ps.stats[STAT_HEALTH] > 0 || cg.intermissionStarted ) {
+		if ( cg.predictedPlayerState.stats[STAT_HEALTH] > 0 || cg.intermissionStarted ) {
 			return 0;
 		}
 		// not enough recorded history (e.g. very high snaps rate)
