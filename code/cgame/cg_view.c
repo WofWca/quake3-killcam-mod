@@ -691,7 +691,9 @@ static qboolean CG_KillcamCalcKillerView( void ) {
 	eye[2] += DEFAULT_VIEWHEIGHT;
 
 	VectorCopy( cg.predictedPlayerState.origin, target );
-	target[2] += 8;		// roughly the middle of the body
+	// When the target and the killer are level,
+	// the camera is also horizontal.
+	target[2] += DEFAULT_VIEWHEIGHT + cg_killcamHeight.value;
 
 	// raise the camera above the killer's head, tracing so that a low
 	// ceiling doesn't put it in solid
