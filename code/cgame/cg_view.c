@@ -744,6 +744,7 @@ Sets cg.refdef view values
 */
 static int CG_CalcViewValues( void ) {
 	playerState_t	*ps;
+	qboolean		killcamCameraPlaced;
 
 	memset( &cg.refdef, 0, sizeof( cg.refdef ) );
 
@@ -806,19 +807,24 @@ static int CG_CalcViewValues( void ) {
 		}
 	}
 
-	cg_killcamRenderingFirstPerson =
-		cg_contextNum == CG_CONTEXT_KILLCAM &&
-		CG_KillcamMode() == KILLCAM_KILLER &&
-		cg_killcamFirstPerson.integer &&
-		CG_KillcamCalcKillerFirstPersonView();
+	cg_killcamRenderingFirstPerson = qfalse;
+	killcamCameraPlaced = qfalse;
+	if ( cg_contextNum == CG_CONTEXT_KILLCAM && CG_KillcamMode() == KILLCAM_KILLER ) {
+		if ( cg_killcamFirstPerson.integer &&
+			CG_KillcamCalcKillerFirstPersonView() )
+		{
+			// camera was placed at the killer's eyes
+			cg_killcamRenderingFirstPerson = qtrue;
+			killcamCameraPlaced = qtrue;
+		} else if ( CG_KillcamCalcKillerView() ) {
+			// camera was placed at the killer
+			killcamCameraPlaced = qtrue;
+		}
+	}
 
-	if ( cg_killcamRenderingFirstPerson ) {
-		// camera was placed at the killer's eyes
-	} else if ( cg_contextNum == CG_CONTEXT_KILLCAM &&
-		CG_KillcamMode() == KILLCAM_KILLER &&
-		CG_KillcamCalcKillerView() )
-	{
-		// camera was placed at the killer
+	if ( killcamCameraPlaced ) {
+		// the victim must be drawn: the camera is looking at them
+		cg.renderingThirdPerson = qtrue;
 	} else if ( cg.renderingThirdPerson ) {
 		// back away from character
 		CG_OffsetThirdPersonView();
@@ -987,11 +993,11 @@ static void CG_DrawActiveFrameCtx( int serverTime, stereoFrame_t stereoView, qbo
 	// decide on third person view
 	cg.renderingThirdPerson = cg_thirdPerson.integer || (cg.snap->ps.stats[STAT_HEALTH] <= 0);
 
-	if ( cg_contextNum == CG_CONTEXT_KILLCAM && CG_KillcamMode() == KILLCAM_KILLER ) {
-		// the killcam camera is at the killer, looking at the victim,
-		// so the victim's own body must be drawn
-		cg.renderingThirdPerson = qtrue;
-	}
+	// note: when the killcam manages to place a camera looking at the
+	// victim, CG_CalcViewValues forces renderingThirdPerson so the
+	// victim's body is drawn; when it can't (killer not in the recorded
+	// data), this default stands and the victim gets their own normal
+	// view -- first person while still alive in the replay
 
 	if ( cg_contextNum == CG_CONTEXT_LIVE ) {
 		CG_TrackClientTeamChange();
