@@ -153,8 +153,9 @@ CG_CVAR( cg_killcamStartDelay, "cg_killcamStartDelay", "1800", CVAR_ARCHIVE )
 CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2500", CVAR_ARCHIVE )
 CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "2500", CVAR_ARCHIVE )
 // When 1, suicides and world deaths (lava, falling, ...) also get a
-// killcam: a third-person replay of ourselves. When 0, only deaths
-// caused by other players do (also see cg_killcamLastAttacker).
+// killcam: a replay of ourselves (own first-person view while still
+// alive, third person after the death). When 0, only deaths caused by
+// other players do (also see cg_killcamLastAttacker).
 CG_CVAR( cg_killcamSuicides, "cg_killcamSuicides", "1", CVAR_ARCHIVE )
 // For suicides and world deaths: if another player damaged us within
 // this many milliseconds before the death (e.g. knocked us off a
