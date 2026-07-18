@@ -604,6 +604,25 @@ qboolean cg_killcamRenderingFirstPerson = qfalse;
 static vec3_t	cg_killcamMissileHoldOrg;
 static qboolean	cg_killcamMissileHoldValid = qfalse;
 
+// where the killcam camera was on the previous killcam frame, whichever
+// camera it was; used to derive the missile-chase offsets so the cut to
+// the missile camera doesn't make the camera jump
+static vec3_t	cg_killcamViewOrg;
+static qboolean	cg_killcamViewOrgValid = qfalse;
+
+// missile-chase offsets derived at the moment the chase begins
+// (used unless overridden by the cg_killcamMissile* cvars)
+static float	cg_killcamMissileAutoRange;
+static float	cg_killcamMissileAutoHeight;
+static float	cg_killcamMissileAutoSide;
+static qboolean	cg_killcamMissileParamsValid = qfalse;
+
+// fallbacks for the derived offsets, when there is no previous camera
+// position to derive from (or it is degenerate)
+#define KILLCAM_MISSILE_DEFAULT_RANGE	48
+#define KILLCAM_MISSILE_DEFAULT_HEIGHT	12
+#define KILLCAM_MISSILE_DEFAULT_SIDE	-15
+
 /*
 ===============
 CG_KillcamViewReset
@@ -614,6 +633,8 @@ previous replay
 */
 void CG_KillcamViewReset( void ) {
 	cg_killcamMissileHoldValid = qfalse;
+	cg_killcamViewOrgValid = qfalse;
+	cg_killcamMissileParamsValid = qfalse;
 }
 
 /*
@@ -694,18 +715,67 @@ static qboolean CG_KillcamCalcMissileView( void ) {
 
 	// chase from behind, slightly above and to the side, without going
 	// into walls
-	VectorMA( missile->lerpOrigin, -cg_killcamMissileRange.value, dir, camOrg );
-	camOrg[2] += cg_killcamMissileHeight.value;
-	if ( cg_killcamMissileSide.value != 0 ) {
-		vec3_t	right;
+	{
+		float		range, height, side;
+		float		dirH2;
+		vec3_t		right;
+		qboolean	haveRight;
 
 		// horizontal perpendicular of the flight direction, same
 		// convention as cg_killcamSide (positive = to the right)
 		right[0] = dir[1];
 		right[1] = -dir[0];
 		right[2] = 0;
-		if ( VectorNormalize( right ) > 0.1f ) {
-			VectorMA( camOrg, cg_killcamMissileSide.value, right, camOrg );
+		haveRight = VectorNormalize( right ) > 0.1f;
+
+		if ( !cg_killcamMissileParamsValid ) {
+			// derive the chase offsets from where the camera is right
+			// now (the previous frame's killcam camera, whichever it
+			// was), so the camera doesn't jump at the cut
+			cg_killcamMissileAutoRange = KILLCAM_MISSILE_DEFAULT_RANGE;
+			cg_killcamMissileAutoHeight = KILLCAM_MISSILE_DEFAULT_HEIGHT;
+			cg_killcamMissileAutoSide = KILLCAM_MISSILE_DEFAULT_SIDE;
+			dirH2 = dir[0] * dir[0] + dir[1] * dir[1];
+			if ( cg_killcamViewOrgValid && haveRight && dirH2 > 0.01f ) {
+				vec3_t	delta;
+
+				// decompose (previous camera - missile) in the frame
+				// the chase position is composed in below:
+				// delta = -range*dir + height*up + side*right
+				// (right is horizontal and perpendicular to dir's
+				// horizontal part, so the axes separate cleanly)
+				VectorSubtract( cg_killcamViewOrg, missile->lerpOrigin, delta );
+				cg_killcamMissileAutoSide = DotProduct( delta, right );
+				cg_killcamMissileAutoRange =
+					-( delta[0] * dir[0] + delta[1] * dir[1] ) / dirH2;
+				cg_killcamMissileAutoHeight = delta[2]
+					+ cg_killcamMissileAutoRange * dir[2];
+
+				// keep the derived offsets sane: the previous camera
+				// can be anywhere (e.g. the victim's own view far from
+				// the launch point)
+				if ( cg_killcamMissileAutoRange < 8 ) cg_killcamMissileAutoRange = 8;
+				if ( cg_killcamMissileAutoRange > 120 ) cg_killcamMissileAutoRange = 120;
+				if ( cg_killcamMissileAutoHeight < -30 ) cg_killcamMissileAutoHeight = -30;
+				if ( cg_killcamMissileAutoHeight > 60 ) cg_killcamMissileAutoHeight = 60;
+				if ( cg_killcamMissileAutoSide < -60 ) cg_killcamMissileAutoSide = -60;
+				if ( cg_killcamMissileAutoSide > 60 ) cg_killcamMissileAutoSide = 60;
+			}
+			cg_killcamMissileParamsValid = qtrue;
+		}
+
+		// the cvars, when set, override the derived offsets
+		range = cg_killcamMissileRange.string[0] != '\0'
+			? cg_killcamMissileRange.value : cg_killcamMissileAutoRange;
+		height = cg_killcamMissileHeight.string[0] != '\0'
+			? cg_killcamMissileHeight.value : cg_killcamMissileAutoHeight;
+		side = cg_killcamMissileSide.string[0] != '\0'
+			? cg_killcamMissileSide.value : cg_killcamMissileAutoSide;
+
+		VectorMA( missile->lerpOrigin, -range, dir, camOrg );
+		camOrg[2] += height;
+		if ( side != 0 && haveRight ) {
+			VectorMA( camOrg, side, right, camOrg );
 		}
 	}
 	CG_Trace( &trace, missile->lerpOrigin, camMins, camMaxs, camOrg, missileNum, MASK_SOLID );
@@ -968,6 +1038,13 @@ static int CG_CalcViewValues( void ) {
 	} else {
 		// offset for local bobbing and kicks
 		CG_OffsetFirstPersonView();
+	}
+
+	// remember where the killcam camera ended up, whichever camera it
+	// was, so the missile chase can pick up from here without a jump
+	if ( cg_contextNum == CG_CONTEXT_KILLCAM && CG_KillcamMode() == KILLCAM_KILLER ) {
+		VectorCopy( cg.refdef.vieworg, cg_killcamViewOrg );
+		cg_killcamViewOrgValid = qtrue;
 	}
 
 	// position eye relative to origin
