@@ -32,6 +32,13 @@ CG_ProcessSnapshots reads from the ring instead of trap_GetSnapshot.
 // edge and abort mid-replay
 #define KILLCAM_CLAMP_MARGIN	200
 
+// a missile explosion within this distance of the victim counts as the
+// killing missile when there was no direct hit (splash kills)
+#define KILLCAM_MISSILE_SPLASH_DIST	300
+// how far around the death time to scan for the missile explosion (ms)
+#define KILLCAM_MISSILE_SCAN_BEFORE	800
+#define KILLCAM_MISSILE_SCAN_AFTER	200
+
 static snapshot_t	cg_killcamSnapshots[KILLCAM_SNAPSHOT_BACKUP];
 // total snapshots ever recorded; snapshot n (1-based) lives in
 // slot (n-1) % KILLCAM_SNAPSHOT_BACKUP until overwritten
@@ -48,6 +55,10 @@ static int			cg_killcamKillerNum = -1;
 static qboolean		cg_killcamDeathPending;
 static int			cg_killcamDeathTime;	// cg.time when the obituary arrived
 static int			cg_killcamDeathKiller;
+
+// the missile that scored the kill, for the missile-chase camera
+static int			cg_killcamMissileNum = -1;
+static int			cg_killcamMissileExplodeTime;
 
 
 // `trap_GetSnapshot` might actually be faster than copying the whole struct,
@@ -160,7 +171,109 @@ void CG_KillcamStart( int time, killcamMode_t mode ) {
 	}
 
 	cg_killcamMode = mode;
+	cg_killcamMissileNum = -1;
+	CG_KillcamViewReset();
 	cg_killcamRunning = qtrue;
+}
+
+
+int CG_KillcamMissileNum( void ) {
+	return cg_killcamMissileNum;
+}
+
+
+int CG_KillcamMissileExplodeTime( void ) {
+	return cg_killcamMissileExplodeTime;
+}
+
+
+/*
+==================
+CG_KillcamFindMissile
+
+Scans the recorded snapshots around the death for the explosion of the
+missile that scored the kill. When a missile explodes, the server turns
+it into an ET_GENERAL entity carrying an EV_MISSILE_* event, the
+explosion position in pos.trBase, and -- for direct hits -- the hit
+player in otherEntityNum (see G_MissileImpact / G_ExplodeMissile).
+Direct hits on the victim win; otherwise the explosion closest to the
+victim within splash range. Only slow, followable missiles are
+considered (rockets, grenades, BFG) -- not plasma.
+
+Sets cg_killcamMissileNum / cg_killcamMissileExplodeTime; must be
+called after CG_KillcamStart (which resets them).
+==================
+*/
+static void CG_KillcamFindMissile( int victimNum, int deathTime ) {
+	int			i, e;
+	int			oldest;
+	float		bestDist;
+	qboolean	bestDirect;
+
+	if ( !cg_killcamMissile.integer ) {
+		return;
+	}
+
+	oldest = cg_killcamRecordedCount - KILLCAM_SNAPSHOT_BACKUP;
+	if ( oldest < 0 ) {
+		oldest = 0;
+	}
+
+	bestDist = KILLCAM_MISSILE_SPLASH_DIST;
+	bestDirect = qfalse;
+
+	for ( i = oldest ; i < cg_killcamRecordedCount ; i++ ) {
+		const snapshot_t *snap = &cg_killcamSnapshots[i % KILLCAM_SNAPSHOT_BACKUP];
+
+		if ( snap->serverTime < deathTime - KILLCAM_MISSILE_SCAN_BEFORE ||
+			snap->serverTime > deathTime + KILLCAM_MISSILE_SCAN_AFTER )
+		{
+			continue;
+		}
+
+		for ( e = 0 ; e < snap->numEntities ; e++ ) {
+			const entityState_t *es = &snap->entities[e];
+			int			event = es->event & ~EV_EVENT_BITS;
+			qboolean	direct;
+			float		dist;
+
+			if ( es->eType != ET_GENERAL ) {
+				continue;
+			}
+			if ( es->weapon != WP_ROCKET_LAUNCHER &&
+				es->weapon != WP_GRENADE_LAUNCHER &&
+				es->weapon != WP_BFG )
+			{
+				continue;
+			}
+
+			if ( event == EV_MISSILE_HIT && es->otherEntityNum == victimNum ) {
+				direct = qtrue;
+				dist = 0;
+			} else if ( event == EV_MISSILE_MISS || event == EV_MISSILE_MISS_METAL ) {
+				direct = qfalse;
+				dist = Distance( es->pos.trBase, snap->ps.origin );
+			} else {
+				continue;
+			}
+
+			// prefer direct hits on the victim, then the splash closest
+			// to them; on equal candidates the earliest snapshot wins,
+			// so the recorded explosion time is the first one (the same
+			// exploded entity can appear in more than one snapshot)
+			if ( bestDirect ) {
+				continue;
+			}
+			if ( !direct && dist >= bestDist ) {
+				continue;
+			}
+
+			bestDirect = direct;
+			bestDist = dist;
+			cg_killcamMissileNum = es->number;
+			cg_killcamMissileExplodeTime = snap->serverTime;
+		}
+	}
 }
 
 
@@ -304,6 +417,9 @@ int CG_KillcamUpdate( int serverTime ) {
 		cg_killcamCurDelay = serverTime - replayStartTime;
 		cg_killcamKillerNum = cg_killcamDeathKiller;
 		CG_KillcamStart( replayStartTime, KILLCAM_KILLER );
+		// after Start (it resets the missile): find the killing missile
+		// for the missile-chase camera
+		CG_KillcamFindMissile( cg.snap->ps.clientNum, cg_killcamDeathTime );
 		return cg_killcamCurDelay;
 	}
 
