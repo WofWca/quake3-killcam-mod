@@ -192,6 +192,12 @@ CG_CVAR( cg_killcamMissile, "cg_killcamMissile", "1", CVAR_ARCHIVE )
 CG_CVAR( cg_killcamMissileRange, "cg_killcamMissileRange", "48", CVAR_ARCHIVE )
 CG_CVAR( cg_killcamMissileHeight, "cg_killcamMissileHeight", "12", CVAR_ARCHIVE )
 CG_CVAR( cg_killcamMissileSide, "cg_killcamMissileSide", "-15", CVAR_ARCHIVE )
+// Where the missile-chase camera looks:
+// 0 = along the missile's flight direction;
+// 1 = at the target (the victim);
+// 2 = at the target for grenades (whose lobbed arcs rarely point at
+//     the victim), along the flight direction for the rest.
+CG_CVAR( cg_killcamMissileLookAtTarget, "cg_killcamMissileLookAtTarget", "1", CVAR_ARCHIVE )
 // Killcam development / testing: when > 0, render the world this many
 // milliseconds in the past (from your own point of view), replayed from
 // recorded snapshots in the killcam context. 0 = off.
