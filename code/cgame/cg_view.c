@@ -599,6 +599,113 @@ static void CG_DamageBlendBlob( void ) {
 // see cg_local.h
 qboolean cg_killcamRenderingFirstPerson = qfalse;
 
+// missile-chase camera "hold": where the camera was when the missile
+// exploded; it stays there watching the victim for the rest of the replay
+static vec3_t	cg_killcamMissileHoldOrg;
+static qboolean	cg_killcamMissileHoldValid = qfalse;
+
+/*
+===============
+CG_KillcamViewReset
+
+Called by CG_KillcamStart so per-replay camera state can't leak from a
+previous replay
+===============
+*/
+void CG_KillcamViewReset( void ) {
+	cg_killcamMissileHoldValid = qfalse;
+}
+
+/*
+===============
+CG_KillcamCalcMissileView
+
+Death replay camera chasing the missile that scored the kill, looking
+along its flight direction. After the explosion the camera holds its
+last chase position, watching the victim (and their gibs). Returns
+qfalse before the missile appears, or when it's out of the victim's
+recorded PVS -- the caller falls back to the killer cameras.
+===============
+*/
+static qboolean CG_KillcamCalcMissileView( void ) {
+	static const vec3_t	camMins = { -6, -6, -6 };
+	static const vec3_t	camMaxs = { 6, 6, 6 };
+	centity_t	*missile;
+	trace_t		trace;
+	vec3_t		dir, camOrg;
+	int			missileNum;
+
+	missileNum = CG_KillcamMissileNum();
+	if ( missileNum < 0 ) {
+		return qfalse;
+	}
+
+	if ( cg.time >= CG_KillcamMissileExplodeTime() ) {
+		// after the explosion: hold the last chase position, watching
+		// the victim (and their gibs)
+		if ( !cg_killcamMissileHoldValid ) {
+			return qfalse;
+		}
+		VectorCopy( cg_killcamMissileHoldOrg, cg.refdef.vieworg );
+		VectorSubtract( cg.predictedPlayerState.origin, cg.refdef.vieworg, dir );
+		if ( VectorNormalize( dir ) < 1 ) {
+			return qfalse;
+		}
+		vectoangles( dir, cg.refdefViewAngles );
+		return qtrue;
+	}
+
+	missile = &cg_entities[missileNum];
+	if ( !missile->currentValid || missile->currentState.eType != ET_MISSILE ) {
+		// not fired yet, or out of the victim's recorded PVS
+		return qfalse;
+	}
+
+	// see the comment in CG_KillcamCalcKillerView
+	CG_SetFrameInterpolation();
+	CG_CalcEntityLerpPositions( missile );
+
+	// look along the flight direction
+	BG_EvaluateTrajectoryDelta( &missile->currentState.pos, cg.time, dir );
+	if ( VectorNormalize( dir ) < 1 ) {
+		// near-stationary (e.g. a grenade at rest): look at the victim
+		VectorSubtract( cg.predictedPlayerState.origin, missile->lerpOrigin, dir );
+		if ( VectorNormalize( dir ) < 1 ) {
+			return qfalse;
+		}
+	}
+	vectoangles( dir, cg.refdefViewAngles );
+
+	// chase from behind, slightly above and to the side, without going
+	// into walls
+	VectorMA( missile->lerpOrigin, -cg_killcamMissileRange.value, dir, camOrg );
+	camOrg[2] += cg_killcamMissileHeight.value;
+	if ( cg_killcamMissileSide.value != 0 ) {
+		vec3_t	right;
+
+		// horizontal perpendicular of the flight direction, same
+		// convention as cg_killcamSide (positive = to the right)
+		right[0] = dir[1];
+		right[1] = -dir[0];
+		right[2] = 0;
+		if ( VectorNormalize( right ) > 0.1f ) {
+			VectorMA( camOrg, cg_killcamMissileSide.value, right, camOrg );
+		}
+	}
+	CG_Trace( &trace, missile->lerpOrigin, camMins, camMaxs, camOrg, missileNum, MASK_SOLID );
+	VectorCopy( trace.endpos, cg.refdef.vieworg );
+
+	VectorCopy( cg.refdef.vieworg, cg_killcamMissileHoldOrg );
+	cg_killcamMissileHoldValid = qtrue;
+
+	// the victim's bob state doesn't apply here
+	cg.bobcycle = 0;
+	cg.bobfracsin = 0;
+	cg.xyspeed = 0;
+
+	return qtrue;
+}
+
 /*
 ===============
 CG_KillcamCalcKillerFirstPersonView
@@ -810,7 +917,10 @@ static int CG_CalcViewValues( void ) {
 	cg_killcamRenderingFirstPerson = qfalse;
 	killcamCameraPlaced = qfalse;
 	if ( cg_contextNum == CG_CONTEXT_KILLCAM && CG_KillcamMode() == KILLCAM_KILLER ) {
-		if ( cg_killcamFirstPerson.integer &&
+		if ( CG_KillcamCalcMissileView() ) {
+			// camera is chasing the killing missile
+			killcamCameraPlaced = qtrue;
+		} else if ( cg_killcamFirstPerson.integer &&
 			CG_KillcamCalcKillerFirstPersonView() )
 		{
 			// camera was placed at the killer's eyes
