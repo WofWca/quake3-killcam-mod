@@ -618,6 +618,20 @@ void CG_KillcamViewReset( void ) {
 
 /*
 ===============
+CG_KillcamTargetPoint
+
+The point on the victim that killcam cameras aim at: head height,
+raised by cg_killcamHeight so that a camera raised by the same amount
+looks horizontally when level with the victim
+===============
+*/
+static void CG_KillcamTargetPoint( vec3_t target ) {
+	VectorCopy( cg.predictedPlayerState.origin, target );
+	target[2] += DEFAULT_VIEWHEIGHT + cg_killcamHeight.value;
+}
+
+/*
+===============
 CG_KillcamCalcMissileView
 
 Death replay camera chasing the missile that scored the kill, looking
@@ -632,7 +646,7 @@ static qboolean CG_KillcamCalcMissileView( void ) {
 	static const vec3_t	camMaxs = { 6, 6, 6 };
 	centity_t	*missile;
 	trace_t		trace;
-	vec3_t		dir, camOrg;
+	vec3_t		dir, camOrg, target;
 	int			missileNum;
 
 	missileNum = CG_KillcamMissileNum();
@@ -647,7 +661,8 @@ static qboolean CG_KillcamCalcMissileView( void ) {
 			return qfalse;
 		}
 		VectorCopy( cg_killcamMissileHoldOrg, cg.refdef.vieworg );
-		VectorSubtract( cg.predictedPlayerState.origin, cg.refdef.vieworg, dir );
+		CG_KillcamTargetPoint( target );
+		VectorSubtract( target, cg.refdef.vieworg, dir );
 		if ( VectorNormalize( dir ) < 1 ) {
 			return qfalse;
 		}
@@ -665,10 +680,11 @@ static qboolean CG_KillcamCalcMissileView( void ) {
 	CG_SetFrameInterpolation();
 	CG_CalcEntityLerpPositions( missile );
 
-	// look along the flight direction
+	// the chase position is behind the missile along its flight direction
 	BG_EvaluateTrajectoryDelta( &missile->currentState.pos, cg.time, dir );
 	if ( VectorNormalize( dir ) < 1 ) {
-		// near-stationary (e.g. a grenade at rest): look at the victim
+		// near-stationary (e.g. a grenade at rest): place the camera
+		// on the far side from the victim
 		VectorSubtract( cg.predictedPlayerState.origin, missile->lerpOrigin, dir );
 		if ( VectorNormalize( dir ) < 1 ) {
 			return qfalse;
@@ -694,6 +710,20 @@ static qboolean CG_KillcamCalcMissileView( void ) {
 	}
 	CG_Trace( &trace, missile->lerpOrigin, camMins, camMaxs, camOrg, missileNum, MASK_SOLID );
 	VectorCopy( trace.endpos, cg.refdef.vieworg );
+
+	// where to look: along the flight direction (already set above), or
+	// at the target -- the default for grenades, whose lobbed arcs
+	// rarely point at the victim
+	if ( cg_killcamMissileLookAtTarget.integer == 1 ||
+		( cg_killcamMissileLookAtTarget.integer == 2 &&
+			missile->currentState.weapon == WP_GRENADE_LAUNCHER ) )
+	{
+		CG_KillcamTargetPoint( target );
+		VectorSubtract( target, cg.refdef.vieworg, dir );
+		if ( VectorNormalize( dir ) >= 1 ) {
+			vectoangles( dir, cg.refdefViewAngles );
+		}
+	}
 
 	VectorCopy( cg.refdef.vieworg, cg_killcamMissileHoldOrg );
 	cg_killcamMissileHoldValid = qtrue;
@@ -797,10 +827,7 @@ static qboolean CG_KillcamCalcKillerView( void ) {
 	VectorCopy( killer->lerpOrigin, eye );
 	eye[2] += DEFAULT_VIEWHEIGHT;
 
-	VectorCopy( cg.predictedPlayerState.origin, target );
-	// When the target and the killer are level,
-	// the camera is also horizontal.
-	target[2] += DEFAULT_VIEWHEIGHT + cg_killcamHeight.value;
+	CG_KillcamTargetPoint( target );
 
 	// raise the camera above the killer's head, tracing so that a low
 	// ceiling doesn't put it in solid
