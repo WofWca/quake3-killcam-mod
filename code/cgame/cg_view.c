@@ -617,6 +617,12 @@ static float	cg_killcamMissileAutoHeight;
 static float	cg_killcamMissileAutoSide;
 static qboolean	cg_killcamMissileParamsValid = qfalse;
 
+// the chased missile's last flight direction, kept so the camera
+// doesn't jump when the missile comes to rest (e.g. a grenade waiting
+// out its fuse becomes TR_STATIONARY, losing its velocity)
+static vec3_t	cg_killcamMissileLastDir;
+static qboolean	cg_killcamMissileLastDirValid = qfalse;
+
 // fallbacks for the derived offsets, when there is no previous camera
 // position to derive from (or it is degenerate)
 #define KILLCAM_MISSILE_DEFAULT_RANGE	48
@@ -635,6 +641,7 @@ void CG_KillcamViewReset( void ) {
 	cg_killcamMissileHoldValid = qfalse;
 	cg_killcamViewOrgValid = qfalse;
 	cg_killcamMissileParamsValid = qfalse;
+	cg_killcamMissileLastDirValid = qfalse;
 }
 
 /*
@@ -710,12 +717,22 @@ static qboolean CG_KillcamCalcMissileView( void ) {
 	// the chase position is behind the missile along its flight direction
 	BG_EvaluateTrajectoryDelta( &missile->currentState.pos, cg.time, dir );
 	if ( VectorNormalize( dir ) < 1 ) {
-		// near-stationary (e.g. a grenade at rest): place the camera
-		// on the far side from the victim
-		VectorSubtract( cg.predictedPlayerState.origin, missile->lerpOrigin, dir );
-		if ( VectorNormalize( dir ) < 1 ) {
-			return qfalse;
+		// near-stationary (e.g. a grenade at rest waiting out its fuse)
+		if ( cg_killcamMissileLastDirValid ) {
+			// keep the direction it was flying in, so the camera
+			// doesn't jump the moment the missile stops
+			VectorCopy( cg_killcamMissileLastDir, dir );
+		} else {
+			// never seen flying: place the camera on the far side
+			// from the victim
+			VectorSubtract( cg.predictedPlayerState.origin, missile->lerpOrigin, dir );
+			if ( VectorNormalize( dir ) < 1 ) {
+				return qfalse;
+			}
 		}
+	} else {
+		VectorCopy( dir, cg_killcamMissileLastDir );
+		cg_killcamMissileLastDirValid = qtrue;
 	}
 	vectoangles( dir, cg.refdefViewAngles );
 
