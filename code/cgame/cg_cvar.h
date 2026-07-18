@@ -182,14 +182,15 @@ CG_CVAR( cg_killcamMissile, "cg_killcamMissile", "1", CVAR_ARCHIVE,
 	"watch the victim from the explosion point for the rest of the "
 	"replay. Plasma is deliberately not followed (cells are a fast "
 	"stream; chasing one for a fraction of a second is jarring)." )
-CG_CVAR( cg_killcamMissileRange, "cg_killcamMissileRange", "48", CVAR_ARCHIVE,
+CG_CVAR( cg_killcamMissileRange, "cg_killcamMissileRange", "", CVAR_ARCHIVE,
 	"How far behind / above / to the side of the missile the chase camera "
-	"floats. The side convention matches cg_killcamSide (positive = to the "
-	"right of the flight direction); with the same side value as the "
-	"killer camera, the cut to the missile camera at launch doesn't jump "
-	"sideways, since the missile starts at the killer." )
-CG_CVAR( cg_killcamMissileHeight, "cg_killcamMissileHeight", "12", CVAR_ARCHIVE, NULL )
-CG_CVAR( cg_killcamMissileSide, "cg_killcamMissileSide", "-15", CVAR_ARCHIVE, NULL )
+	"floats. When empty (the default), these are derived from where the "
+	"camera already is at the moment the chase begins, so the cut to the "
+	"missile camera doesn't make the camera jump. Set a number to "
+	"override an axis. The side convention matches cg_killcamSide "
+	"(positive = to the right of the flight direction)." )
+CG_CVAR( cg_killcamMissileHeight, "cg_killcamMissileHeight", "", CVAR_ARCHIVE, NULL )
+CG_CVAR( cg_killcamMissileSide, "cg_killcamMissileSide", "", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_killcamMissileLookAtTarget, "cg_killcamMissileLookAtTarget", "1", CVAR_ARCHIVE,
 	"Where the missile-chase camera looks: "
 	"0 = along the missile's flight direction; "
