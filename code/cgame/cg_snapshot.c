@@ -62,6 +62,10 @@ static int			cg_killcamKillerNum = -1;
 static qboolean		cg_killcamDeathPending;
 static int			cg_killcamDeathTime;	// cg.time when the obituary arrived
 static int			cg_killcamDeathKiller;
+// for cg_killcamStartOnAttack: only a fresh attack press (after a
+// release) skips the start delay, since the player was likely still
+// holding fire when they died
+static qboolean		cg_killcamAttackWasUp;
 
 #ifndef KILLCAM_NO_MISSILE_CHASE
 // the missile that scored the kill, for the missile-chase camera
@@ -404,6 +408,7 @@ void CG_KillcamScheduleDeathReplay( int killerNum, int time ) {
 	}
 	cg_killcamDeathPending = qtrue;
 	cg_killcamDeathKiller = killerNum;
+	cg_killcamAttackWasUp = qfalse;
 	cg_killcamDeathTime = time;
 }
 
@@ -483,7 +488,30 @@ int CG_KillcamUpdate( int serverTime ) {
 
 		// let the death register on screen before switching views
 		if ( serverTime < cg_killcamDeathTime + startDelay ) {
-			return 0;
+			qboolean	startNow = qfalse;
+
+			// a fresh attack press (click) skips the wait, once the
+			// grace period against accidental clicks has passed.
+			// Note that the server ignores attack presses of dead
+			// players for ~1.7 s after the death, so an early click
+			// doesn't respawn us; later ones do (and end the
+			// killcam), as usual.
+			if ( cg_killcamStartOnClickDelay.integer >= 0 &&
+				serverTime >= cg_killcamDeathTime + cg_killcamStartOnClickDelay.integer )
+			{
+				usercmd_t	cmd;
+
+				if ( trap_GetUserCmd( trap_GetCurrentCmdNumber(), &cmd ) ) {
+					if ( !( cmd.buttons & BUTTON_ATTACK ) ) {
+						cg_killcamAttackWasUp = qtrue;
+					} else if ( cg_killcamAttackWasUp ) {
+						startNow = qtrue;
+					}
+				}
+			}
+			if ( !startNow ) {
+				return 0;
+			}
 		}
 		cg_killcamDeathPending = qfalse;
 
