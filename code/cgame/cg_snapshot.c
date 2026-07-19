@@ -41,9 +41,9 @@ CG_ProcessSnapshots reads from the ring instead of trap_GetSnapshot.
 // same missile if extrapolating the older one lands within this many
 // units of the newer one (bounces between snapshots leave some error)
 #define KILLCAM_MISSILE_CONTINUITY_DIST	128
-// how far around the death time to scan for the missile explosion (ms)
-#define KILLCAM_MISSILE_SCAN_BEFORE	800
-#define KILLCAM_MISSILE_SCAN_AFTER	200
+// how far back from the obituary time to look for the snapshot in
+// which the victim died (ms)
+#define KILLCAM_MISSILE_DEATH_SCAN	2000
 #endif // KILLCAM_NO_MISSILE_CHASE
 
 static snapshot_t	cg_killcamSnapshots[KILLCAM_SNAPSHOT_BACKUP];
@@ -265,19 +265,43 @@ static void CG_KillcamFindMissile( int victimNum, int deathTime ) {
 		oldest = 0;
 	}
 
-	bestDist = KILLCAM_MISSILE_SPLASH_DIST;
-	bestDirect = qfalse;
+	// The killing damage and the death happen in the same server
+	// frame (G_MissileImpact -> G_Damage -> player_die), so the
+	// killing explosion and the death first appear in the same
+	// snapshot. Find the (newest) snapshot around the obituary time
+	// in which the victim went from alive to dead, and look for the
+	// explosion only there: explosions in earlier snapshots (e.g. a
+	// non-fatal direct hit right before a killing splash) and in
+	// later ones (e.g. another player's missile gibbing our corpse)
+	// cannot be the killing one.
 	bestSnapNum = -1;
-	bestWeapon = WP_NONE;
-
-	for ( i = oldest ; i < cg_killcamRecordedCount ; i++ ) {
+	for ( i = cg_killcamRecordedCount - 1 ; i > oldest ; i-- ) {
 		const snapshot_t *snap = &cg_killcamSnapshots[i % KILLCAM_SNAPSHOT_BACKUP];
+		const snapshot_t *prev = &cg_killcamSnapshots[( i - 1 ) % KILLCAM_SNAPSHOT_BACKUP];
 
-		if ( snap->serverTime < deathTime - KILLCAM_MISSILE_SCAN_BEFORE ||
-			snap->serverTime > deathTime + KILLCAM_MISSILE_SCAN_AFTER )
-		{
+		if ( snap->serverTime > deathTime ) {
 			continue;
 		}
+		if ( snap->serverTime < deathTime - KILLCAM_MISSILE_DEATH_SCAN ) {
+			break;
+		}
+		if ( snap->ps.stats[STAT_HEALTH] <= 0 &&
+			prev->ps.stats[STAT_HEALTH] > 0 )
+		{
+			bestSnapNum = i;
+			break;
+		}
+	}
+	if ( bestSnapNum == -1 ) {
+		return;
+	}
+
+	bestDist = KILLCAM_MISSILE_SPLASH_DIST;
+	bestDirect = qfalse;
+	bestWeapon = WP_NONE;
+
+	{
+		const snapshot_t *snap = &cg_killcamSnapshots[bestSnapNum % KILLCAM_SNAPSHOT_BACKUP];
 
 		for ( e = 0 ; e < snap->numEntities ; e++ ) {
 			const entityState_t *es = &snap->entities[e];
@@ -305,10 +329,8 @@ static void CG_KillcamFindMissile( int victimNum, int deathTime ) {
 				continue;
 			}
 
-			// prefer direct hits on the victim, then the splash closest
-			// to them; on equal candidates the earliest snapshot wins,
-			// so the recorded explosion time is the first one (the same
-			// exploded entity can appear in more than one snapshot)
+			// prefer a direct hit on the victim, then the splash
+			// closest to them
 			if ( bestDirect ) {
 				continue;
 			}
@@ -318,7 +340,6 @@ static void CG_KillcamFindMissile( int victimNum, int deathTime ) {
 
 			bestDirect = direct;
 			bestDist = dist;
-			bestSnapNum = i;
 			bestWeapon = es->weapon;
 			cg_killcamMissileNum = es->number;
 			cg_killcamMissileExplodeTime = snap->serverTime;
