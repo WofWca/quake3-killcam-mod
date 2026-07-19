@@ -184,6 +184,11 @@ CG_CVAR( cg_killcamSide, "cg_killcamSide", "-15", CVAR_ARCHIVE )
 // replay. Plasma is deliberately not followed (cells are a fast
 // stream; chasing one for a fraction of a second is jarring).
 CG_CVAR( cg_killcamMissile, "cg_killcamMissile", "1", CVAR_ARCHIVE )
+// Don't switch to the missile-chase camera if the missile's recorded
+// flight (first sighting to explosion) is shorter than this many
+// milliseconds -- e.g. a point-blank rocket; the killer camera is
+// kept instead. 0 = always chase.
+CG_CVAR( cg_killcamMissileMinDuration, "cg_killcamMissileMinDuration", "300", CVAR_ARCHIVE )
 // How far behind / above / to the side of the missile the chase camera
 // floats. When empty (the default), these are derived from where the
 // camera already is at the moment the chase begins, so the cut to the
