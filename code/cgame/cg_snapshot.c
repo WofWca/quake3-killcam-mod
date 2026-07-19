@@ -32,6 +32,8 @@ CG_ProcessSnapshots reads from the ring instead of trap_GetSnapshot.
 // edge and abort mid-replay
 #define KILLCAM_CLAMP_MARGIN	200
 
+// define KILLCAM_NO_MISSILE_CHASE to compile the missile-chase camera out
+#ifndef KILLCAM_NO_MISSILE_CHASE
 // a missile explosion within this distance of the victim counts as the
 // killing missile when there was no direct hit (splash kills)
 #define KILLCAM_MISSILE_SPLASH_DIST	300
@@ -42,6 +44,7 @@ CG_ProcessSnapshots reads from the ring instead of trap_GetSnapshot.
 // how far around the death time to scan for the missile explosion (ms)
 #define KILLCAM_MISSILE_SCAN_BEFORE	800
 #define KILLCAM_MISSILE_SCAN_AFTER	200
+#endif // KILLCAM_NO_MISSILE_CHASE
 
 static snapshot_t	cg_killcamSnapshots[KILLCAM_SNAPSHOT_BACKUP];
 // total snapshots ever recorded; snapshot n (1-based) lives in
@@ -60,6 +63,7 @@ static qboolean		cg_killcamDeathPending;
 static int			cg_killcamDeathTime;	// cg.time when the obituary arrived
 static int			cg_killcamDeathKiller;
 
+#ifndef KILLCAM_NO_MISSILE_CHASE
 // the missile that scored the kill, for the missile-chase camera
 static int			cg_killcamMissileNum = -1;
 static int			cg_killcamMissileExplodeTime;
@@ -67,6 +71,7 @@ static int			cg_killcamMissileExplodeTime;
 // server reuses entity numbers, so before this time the same number
 // may have belonged to a different missile
 static int			cg_killcamMissileStartTime;
+#endif // KILLCAM_NO_MISSILE_CHASE
 
 
 // `trap_GetSnapshot` might actually be faster than copying the whole struct,
@@ -179,12 +184,15 @@ void CG_KillcamStart( int time, killcamMode_t mode ) {
 	}
 
 	cg_killcamMode = mode;
+#ifndef KILLCAM_NO_MISSILE_CHASE
 	cg_killcamMissileNum = -1;
+#endif // KILLCAM_NO_MISSILE_CHASE
 	CG_KillcamViewReset();
 	cg_killcamRunning = qtrue;
 }
 
 
+#ifndef KILLCAM_NO_MISSILE_CHASE
 int CG_KillcamMissileNum( void ) {
 	return cg_killcamMissileNum;
 }
@@ -362,6 +370,7 @@ static void CG_KillcamFindMissile( int victimNum, int deathTime ) {
 		cg_killcamMissileNum = -1;
 	}
 }
+#endif // KILLCAM_NO_MISSILE_CHASE
 
 
 void CG_KillcamStop( void ) {
@@ -504,9 +513,11 @@ int CG_KillcamUpdate( int serverTime ) {
 		cg_killcamCurDelay = serverTime - replayStartTime;
 		cg_killcamKillerNum = cg_killcamDeathKiller;
 		CG_KillcamStart( replayStartTime, KILLCAM_KILLER );
+#ifndef KILLCAM_NO_MISSILE_CHASE
 		// after Start (it resets the missile): find the killing missile
 		// for the missile-chase camera
 		CG_KillcamFindMissile( cg.snap->ps.clientNum, cg_killcamDeathTime );
+#endif // KILLCAM_NO_MISSILE_CHASE
 		return cg_killcamCurDelay;
 	}
 
