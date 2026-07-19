@@ -675,6 +675,12 @@ static qboolean CG_KillcamCalcMissileView( void ) {
 		return qfalse;
 	}
 
+	if ( cg.time < CG_KillcamMissileStartTime() ) {
+		// back then, this entity number belonged to a different missile
+		// (the server reuses entity numbers): don't chase that one
+		return qfalse;
+	}
+
 	if ( cg.time >= CG_KillcamMissileExplodeTime() ) {
 		// after the explosion: hold the last chase position, watching
 		// the victim (and their gibs)
