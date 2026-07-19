@@ -129,7 +129,7 @@ CG_CVAR( cg_teamColors, "cg_teamColors", "", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_deadBodyDarken, "cg_deadBodyDarken", "1", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_fovAdjust, "cg_fovAdjust", "0", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_followKiller, "cg_followKiller", "0", CVAR_ARCHIVE, NULL )
-CG_CVAR( cg_killcam, "cg_killcam", "1", CVAR_ARCHIVE,
+CG_CVAR( cg_killcam, "cg_killcam", "1", 0,
 	"When 1, dying to another player shows a killcam: a replay of the last "
 	"few seconds with the camera at the killer, aimed at you. Ends on its "
 	"own shortly after the kill, or as soon as you respawn (clicking to "
@@ -141,7 +141,7 @@ CG_CVAR( cg_killcam, "cg_killcam", "1", CVAR_ARCHIVE,
 // Though we want to make sure that when "Fire" is held
 // then we don't transition to the killcam for a frame or two.
 // Exactly 1700 would be better, but we seem to have some miscalculations.
-CG_CVAR( cg_killcamStartDelay, "cg_killcamStartDelay", "1800", CVAR_ARCHIVE,
+CG_CVAR( cg_killcamStartDelay, "cg_killcamStartDelay", "1800", 0,
 	"Death replay timing, all in milliseconds. The view switches "
 	"cg_killcamStartDelay after dying; the replay covers from "
 	"cg_killcamPreroll before the kill to cg_killcamPostroll after it. "
@@ -149,7 +149,7 @@ CG_CVAR( cg_killcamStartDelay, "cg_killcamStartDelay", "1800", CVAR_ARCHIVE,
 	"(see KILLCAM_SNAPSHOT_BACKUP, ~25.6 s at snaps 20, "
 	"~12.8 s at snaps 40): if it no longer holds the full "
 	"preroll, the replay starts at the oldest recorded snapshot instead." )
-CG_CVAR( cg_killcamStartOnClickDelay, "cg_killcamStartOnClickDelay", "9999999", CVAR_ARCHIVE,
+CG_CVAR( cg_killcamStartOnClickDelay, "cg_killcamStartOnClickDelay", "9999999", 0,
 	"After dying, freshly pressing attack (clicking) starts the death "
 	"replay right away instead of waiting out cg_killcamStartDelay. "
 	"Clicks within this many milliseconds of the death are ignored, as "
@@ -162,55 +162,55 @@ CG_CVAR( cg_killcamStartOnClickDelay, "cg_killcamStartOnClickDelay", "9999999", 
 	"but the respawn delay is already up. "
 	"TODO we probably need to make a separate command "
 	"to advance the killcam and bind it to mouse1 or something." )
-CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2500", CVAR_ARCHIVE, NULL )
-CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "2500", CVAR_ARCHIVE, NULL )
-CG_CVAR( cg_killcamSuicides, "cg_killcamSuicides", "1", CVAR_ARCHIVE,
+CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2500", 0, NULL )
+CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "2500", 0, NULL )
+CG_CVAR( cg_killcamSuicides, "cg_killcamSuicides", "1", 0,
 	"When 1, suicides and world deaths (lava, falling, ...) also get a "
 	"killcam: a replay of ourselves (own first-person view while still "
 	"alive, third person after the death). When 0, only deaths caused by "
 	"other players do (also see cg_killcamLastAttacker)." )
-CG_CVAR( cg_killcamLastAttacker, "cg_killcamLastAttacker", "7500", CVAR_ARCHIVE,
+CG_CVAR( cg_killcamLastAttacker, "cg_killcamLastAttacker", "7500", 0,
 	"For suicides and world deaths: if another player damaged us within "
 	"this many milliseconds before the death (e.g. knocked us off a "
 	"ledge), show the killcam from their side instead. Works regardless "
 	"of cg_killcamSuicides. 0 = off." )
-CG_CVAR( cg_killcamFirstPerson, "cg_killcamFirstPerson", "0", CVAR_ARCHIVE,
+CG_CVAR( cg_killcamFirstPerson, "cg_killcamFirstPerson", "0", 0,
 	"When 1, the death replay is shown from the killer's eyes (with their "
 	"view weapon), like a classic killcam. When 0, a third-person camera "
 	"floats behind the killer (see the placement cvars below). Falls back "
 	"to third person when the killer is dead or not in the recorded data. "
 	"TODO kinda experimental. For example, there is a bug "
 	"where there are visibly 2 lightning beams." )
-CG_CVAR( cg_killcamRange, "cg_killcamRange", "50", CVAR_ARCHIVE,
+CG_CVAR( cg_killcamRange, "cg_killcamRange", "50", 0,
 	"Killcam camera placement: how far behind, above and to the side of "
 	"the killer's head the camera floats. The height and side offsets keep "
 	"the killer's model and the award icons above their head from covering "
 	"the victim at the center of the screen. Positive side = camera to the "
 	"killer's right (the killer appears left of center), negative = left." )
-CG_CVAR( cg_killcamHeight, "cg_killcamHeight", "24", CVAR_ARCHIVE, NULL )
-CG_CVAR( cg_killcamSide, "cg_killcamSide", "-15", CVAR_ARCHIVE, NULL )
+CG_CVAR( cg_killcamHeight, "cg_killcamHeight", "24", 0, NULL )
+CG_CVAR( cg_killcamSide, "cg_killcamSide", "-15", 0, NULL )
 #ifndef KILLCAM_NO_MISSILE_CHASE
-CG_CVAR( cg_killcamMissile, "cg_killcamMissile", "1", CVAR_ARCHIVE,
+CG_CVAR( cg_killcamMissile, "cg_killcamMissile", "1", 0,
 	"When the kill was scored with a slow missile (rocket, grenade, BFG), "
 	"chase that missile with the camera from launch to explosion, then "
 	"watch the victim from the explosion point for the rest of the "
 	"replay. Plasma is deliberately not followed (cells are a fast "
 	"stream; chasing one for a fraction of a second is jarring)." )
-CG_CVAR( cg_killcamMissileMinDuration, "cg_killcamMissileMinDuration", "300", CVAR_ARCHIVE,
+CG_CVAR( cg_killcamMissileMinDuration, "cg_killcamMissileMinDuration", "300", 0,
 	"Don't switch to the missile-chase camera if the missile's recorded "
 	"flight (first sighting to explosion) is shorter than this many "
 	"milliseconds -- e.g. a point-blank rocket; the killer camera is "
 	"kept instead. 0 = always chase." )
-CG_CVAR( cg_killcamMissileRange, "cg_killcamMissileRange", "", CVAR_ARCHIVE,
+CG_CVAR( cg_killcamMissileRange, "cg_killcamMissileRange", "", 0,
 	"How far behind / above / to the side of the missile the chase camera "
 	"floats. When empty (the default), these are derived from where the "
 	"camera already is at the moment the chase begins, so the cut to the "
 	"missile camera doesn't make the camera jump. Set a number to "
 	"override an axis. The side convention matches cg_killcamSide "
 	"(positive = to the right of the flight direction)." )
-CG_CVAR( cg_killcamMissileHeight, "cg_killcamMissileHeight", "", CVAR_ARCHIVE, NULL )
-CG_CVAR( cg_killcamMissileSide, "cg_killcamMissileSide", "", CVAR_ARCHIVE, NULL )
-CG_CVAR( cg_killcamMissileLookAtTarget, "cg_killcamMissileLookAtTarget", "1", CVAR_ARCHIVE,
+CG_CVAR( cg_killcamMissileHeight, "cg_killcamMissileHeight", "", 0, NULL )
+CG_CVAR( cg_killcamMissileSide, "cg_killcamMissileSide", "", 0, NULL )
+CG_CVAR( cg_killcamMissileLookAtTarget, "cg_killcamMissileLookAtTarget", "1", 0,
 	"Where the missile-chase camera looks: "
 	"0 = along the missile's flight direction; "
 	"1 = at the target (the victim); "
