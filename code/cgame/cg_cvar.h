@@ -178,6 +178,7 @@ CG_CVAR( cg_killcamFirstPerson, "cg_killcamFirstPerson", "0", CVAR_ARCHIVE )
 CG_CVAR( cg_killcamRange, "cg_killcamRange", "50", CVAR_ARCHIVE )
 CG_CVAR( cg_killcamHeight, "cg_killcamHeight", "24", CVAR_ARCHIVE )
 CG_CVAR( cg_killcamSide, "cg_killcamSide", "-15", CVAR_ARCHIVE )
+#ifndef KILLCAM_NO_MISSILE_CHASE
 // When the kill was scored with a slow missile (rocket, grenade, BFG),
 // chase that missile with the camera from launch to explosion, then
 // watch the victim from the explosion point for the rest of the
@@ -204,6 +205,7 @@ CG_CVAR( cg_killcamMissileSide, "cg_killcamMissileSide", "", CVAR_ARCHIVE )
 // 2 = at the target for grenades (whose lobbed arcs rarely point at
 //     the victim), along the flight direction for the rest.
 CG_CVAR( cg_killcamMissileLookAtTarget, "cg_killcamMissileLookAtTarget", "1", CVAR_ARCHIVE )
+#endif // KILLCAM_NO_MISSILE_CHASE
 // Killcam development / testing: when > 0, render the world this many
 // milliseconds in the past (from your own point of view), replayed from
 // recorded snapshots in the killcam context. 0 = off.

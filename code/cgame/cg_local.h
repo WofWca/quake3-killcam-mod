@@ -1461,6 +1461,7 @@ killcamMode_t CG_KillcamMode( void );
 int CG_KillcamKillerNum( void );
 void CG_KillcamScheduleDeathReplay( int killerNum, int time );
 int CG_KillcamUpdate( int serverTime );
+#ifndef KILLCAM_NO_MISSILE_CHASE
 // the missile that scored the kill (for the missile-chase camera),
 // -1 if none; and the serverTimes of its recorded explosion and of its
 // first recorded snapshot (before which the same entity number may
@@ -1468,6 +1469,7 @@ int CG_KillcamUpdate( int serverTime );
 int CG_KillcamMissileNum( void );
 int CG_KillcamMissileExplodeTime( void );
 int CG_KillcamMissileStartTime( void );
+#endif // KILLCAM_NO_MISSILE_CHASE
 // resets cg_view.c's per-replay camera state (called by CG_KillcamStart)
 void CG_KillcamViewReset( void );
 
