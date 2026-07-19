@@ -176,6 +176,7 @@ CG_CVAR( cg_killcamRange, "cg_killcamRange", "50", CVAR_ARCHIVE,
 	"killer's right (the killer appears left of center), negative = left." )
 CG_CVAR( cg_killcamHeight, "cg_killcamHeight", "24", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_killcamSide, "cg_killcamSide", "-15", CVAR_ARCHIVE, NULL )
+#ifndef KILLCAM_NO_MISSILE_CHASE
 CG_CVAR( cg_killcamMissile, "cg_killcamMissile", "1", CVAR_ARCHIVE,
 	"When the kill was scored with a slow missile (rocket, grenade, BFG), "
 	"chase that missile with the camera from launch to explosion, then "
@@ -202,6 +203,7 @@ CG_CVAR( cg_killcamMissileLookAtTarget, "cg_killcamMissileLookAtTarget", "1", CV
 	"1 = at the target (the victim); "
 	"2 = at the target for grenades (whose lobbed arcs rarely point at "
 	"the victim), along the flight direction for the rest." )
+#endif // KILLCAM_NO_MISSILE_CHASE
 CG_CVAR( cg_killcamTest, "cg_killcamTest", "0", 0,
 	"Killcam development / testing: when > 0, render the world this many "
 	"milliseconds in the past (from your own point of view), replayed from "

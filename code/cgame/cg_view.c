@@ -599,6 +599,7 @@ static void CG_DamageBlendBlob( void ) {
 // see cg_local.h
 qboolean cg_killcamRenderingFirstPerson = qfalse;
 
+#ifndef KILLCAM_NO_MISSILE_CHASE
 // missile-chase camera "hold": where the camera was when the missile
 // exploded; it stays there watching the victim for the rest of the replay
 static vec3_t	cg_killcamMissileHoldOrg;
@@ -628,6 +629,7 @@ static qboolean	cg_killcamMissileLastDirValid = qfalse;
 #define KILLCAM_MISSILE_DEFAULT_RANGE	48
 #define KILLCAM_MISSILE_DEFAULT_HEIGHT	12
 #define KILLCAM_MISSILE_DEFAULT_SIDE	-15
+#endif // KILLCAM_NO_MISSILE_CHASE
 
 /*
 ===============
@@ -638,10 +640,12 @@ previous replay
 ===============
 */
 void CG_KillcamViewReset( void ) {
+#ifndef KILLCAM_NO_MISSILE_CHASE
 	cg_killcamMissileHoldValid = qfalse;
 	cg_killcamViewOrgValid = qfalse;
 	cg_killcamMissileParamsValid = qfalse;
 	cg_killcamMissileLastDirValid = qfalse;
+#endif // KILLCAM_NO_MISSILE_CHASE
 }
 
 /*
@@ -658,6 +662,7 @@ static void CG_KillcamTargetPoint( vec3_t target ) {
 	target[2] += DEFAULT_VIEWHEIGHT + cg_killcamHeight.value;
 }
 
+#ifndef KILLCAM_NO_MISSILE_CHASE
 /*
 ===============
 CG_KillcamCalcMissileView
@@ -835,6 +840,7 @@ static qboolean CG_KillcamCalcMissileView( void ) {
 
 	return qtrue;
 }
+#endif // KILLCAM_NO_MISSILE_CHASE
 
 /*
 ===============
@@ -1044,10 +1050,13 @@ static int CG_CalcViewValues( void ) {
 	cg_killcamRenderingFirstPerson = qfalse;
 	killcamCameraPlaced = qfalse;
 	if ( cg_contextNum == CG_CONTEXT_KILLCAM && CG_KillcamMode() == KILLCAM_KILLER ) {
+#ifndef KILLCAM_NO_MISSILE_CHASE
 		if ( CG_KillcamCalcMissileView() ) {
 			// camera is chasing the killing missile
 			killcamCameraPlaced = qtrue;
-		} else if ( cg_killcamFirstPerson.integer &&
+		} else
+#endif // KILLCAM_NO_MISSILE_CHASE
+		if ( cg_killcamFirstPerson.integer &&
 			CG_KillcamCalcKillerFirstPersonView() )
 		{
 			// camera was placed at the killer's eyes
@@ -1070,12 +1079,14 @@ static int CG_CalcViewValues( void ) {
 		CG_OffsetFirstPersonView();
 	}
 
+#ifndef KILLCAM_NO_MISSILE_CHASE
 	// remember where the killcam camera ended up, whichever camera it
 	// was, so the missile chase can pick up from here without a jump
 	if ( cg_contextNum == CG_CONTEXT_KILLCAM && CG_KillcamMode() == KILLCAM_KILLER ) {
 		VectorCopy( cg.refdef.vieworg, cg_killcamViewOrg );
 		cg_killcamViewOrgValid = qtrue;
 	}
+#endif // KILLCAM_NO_MISSILE_CHASE
 
 	// position eye relative to origin
 	AnglesToAxis( cg.refdefViewAngles, cg.refdef.viewaxis );
