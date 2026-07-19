@@ -35,6 +35,10 @@ CG_ProcessSnapshots reads from the ring instead of trap_GetSnapshot.
 // a missile explosion within this distance of the victim counts as the
 // killing missile when there was no direct hit (splash kills)
 #define KILLCAM_MISSILE_SPLASH_DIST	300
+// two recorded states of the same entity number are considered the
+// same missile if extrapolating the older one lands within this many
+// units of the newer one (bounces between snapshots leave some error)
+#define KILLCAM_MISSILE_CONTINUITY_DIST	128
 // how far around the death time to scan for the missile explosion (ms)
 #define KILLCAM_MISSILE_SCAN_BEFORE	800
 #define KILLCAM_MISSILE_SCAN_AFTER	200
@@ -59,6 +63,10 @@ static int			cg_killcamDeathKiller;
 // the missile that scored the kill, for the missile-chase camera
 static int			cg_killcamMissileNum = -1;
 static int			cg_killcamMissileExplodeTime;
+// serverTime of the first recorded snapshot of *this* missile: the
+// server reuses entity numbers, so before this time the same number
+// may have belonged to a different missile
+static int			cg_killcamMissileStartTime;
 
 
 // `trap_GetSnapshot` might actually be faster than copying the whole struct,
@@ -187,6 +195,30 @@ int CG_KillcamMissileExplodeTime( void ) {
 }
 
 
+int CG_KillcamMissileStartTime( void ) {
+	return cg_killcamMissileStartTime;
+}
+
+
+/*
+==================
+CG_KillcamSnapEntity
+
+The entity with the given number in a recorded snapshot, or NULL
+==================
+*/
+static const entityState_t *CG_KillcamSnapEntity( const snapshot_t *snap, int number ) {
+	int		e;
+
+	for ( e = 0 ; e < snap->numEntities ; e++ ) {
+		if ( snap->entities[e].number == number ) {
+			return &snap->entities[e];
+		}
+	}
+	return NULL;
+}
+
+
 /*
 ==================
 CG_KillcamFindMissile
@@ -209,6 +241,8 @@ static void CG_KillcamFindMissile( int victimNum, int deathTime ) {
 	int			oldest;
 	float		bestDist;
 	qboolean	bestDirect;
+	int			bestSnapNum;
+	int			bestWeapon;
 
 	if ( !cg_killcamMissile.integer ) {
 		return;
@@ -221,6 +255,8 @@ static void CG_KillcamFindMissile( int victimNum, int deathTime ) {
 
 	bestDist = KILLCAM_MISSILE_SPLASH_DIST;
 	bestDirect = qfalse;
+	bestSnapNum = -1;
+	bestWeapon = WP_NONE;
 
 	for ( i = oldest ; i < cg_killcamRecordedCount ; i++ ) {
 		const snapshot_t *snap = &cg_killcamSnapshots[i % KILLCAM_SNAPSHOT_BACKUP];
@@ -270,8 +306,50 @@ static void CG_KillcamFindMissile( int victimNum, int deathTime ) {
 
 			bestDirect = direct;
 			bestDist = dist;
+			bestSnapNum = i;
+			bestWeapon = es->weapon;
 			cg_killcamMissileNum = es->number;
 			cg_killcamMissileExplodeTime = snap->serverTime;
+		}
+	}
+
+	if ( cg_killcamMissileNum < 0 ) {
+		return;
+	}
+
+	// The server reuses entity numbers, so within the replay window the
+	// same number may earlier have belonged to a different missile.
+	// Find where *this* missile's history begins by walking backwards
+	// from the explosion while the recorded states form one continuous
+	// trajectory; the chase only runs from that time on.
+	cg_killcamMissileStartTime = cg_killcamMissileExplodeTime;
+	{
+		const entityState_t	*newer = NULL;
+		int					newerTime = 0;
+
+		for ( i = bestSnapNum - 1 ; i >= oldest ; i-- ) {
+			const snapshot_t	*snap = &cg_killcamSnapshots[i % KILLCAM_SNAPSHOT_BACKUP];
+			const entityState_t	*es = CG_KillcamSnapEntity( snap, cg_killcamMissileNum );
+
+			if ( !es || es->eType != ET_MISSILE || es->weapon != bestWeapon ) {
+				break;
+			}
+			if ( newer ) {
+				vec3_t	predicted, actual;
+
+				// this older state, extrapolated forward, must land
+				// about where the newer state actually is (grenade
+				// bounces between snapshots leave a bounded error)
+				BG_EvaluateTrajectory( &es->pos, newerTime, predicted );
+				BG_EvaluateTrajectory( &newer->pos, newerTime, actual );
+				if ( Distance( predicted, actual ) > KILLCAM_MISSILE_CONTINUITY_DIST ) {
+					// a different missile that wore the same number
+					break;
+				}
+			}
+			cg_killcamMissileStartTime = snap->serverTime;
+			newer = es;
+			newerTime = snap->serverTime;
 		}
 	}
 }
