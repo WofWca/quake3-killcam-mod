@@ -149,6 +149,19 @@ CG_CVAR( cg_killcamStartDelay, "cg_killcamStartDelay", "1800", CVAR_ARCHIVE,
 	"(see KILLCAM_SNAPSHOT_BACKUP, ~25.6 s at snaps 20, "
 	"~12.8 s at snaps 40): if it no longer holds the full "
 	"preroll, the replay starts at the oldest recorded snapshot instead." )
+CG_CVAR( cg_killcamStartOnClickDelay, "cg_killcamStartOnClickDelay", "9999999", CVAR_ARCHIVE,
+	"After dying, freshly pressing attack (clicking) starts the death "
+	"replay right away instead of waiting out cg_killcamStartDelay. "
+	"Clicks within this many milliseconds of the death are ignored, as "
+	"a grace period against accidental clicks; -1 disables starting on "
+	"attack entirely. Note that only clicks within ~1.7 s of dying can "
+	"start the replay: later ones make the server respawn us, ending "
+	"the killcam as usual, so a second click still skips the replay. "
+	"Disabled by default for now, because this might cause the player "
+	"to respawn by mistake if they tried to click to start killcam "
+	"but the respawn delay is already up. "
+	"TODO we probably need to make a separate command "
+	"to advance the killcam and bind it to mouse1 or something." )
 CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2500", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "2500", CVAR_ARCHIVE, NULL )
 CG_CVAR( cg_killcamSuicides, "cg_killcamSuicides", "1", CVAR_ARCHIVE,
