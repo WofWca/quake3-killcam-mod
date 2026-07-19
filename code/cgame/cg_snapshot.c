@@ -352,6 +352,15 @@ static void CG_KillcamFindMissile( int victimNum, int deathTime ) {
 			newerTime = snap->serverTime;
 		}
 	}
+
+	// don't bother cutting to the missile for a blink of an eye
+	// (e.g. a point-blank rocket): keep the killer camera instead
+	if ( cg_killcamMissileMinDuration.integer > 0 &&
+		cg_killcamMissileExplodeTime - cg_killcamMissileStartTime <
+			cg_killcamMissileMinDuration.integer )
+	{
+		cg_killcamMissileNum = -1;
+	}
 }
 
 
