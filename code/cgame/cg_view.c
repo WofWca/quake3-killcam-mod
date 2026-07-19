@@ -737,17 +737,28 @@ static qboolean CG_KillcamCalcMissileView( void ) {
 	vectoangles( dir, cg.refdefViewAngles );
 
 	// chase from behind, slightly above and to the side, without going
-	// into walls
+	// into walls. The chase position trails the *horizontal* flight
+	// direction only: a floor bounce flips the vertical velocity, and
+	// trailing the full direction would put the camera under the floor
+	// (the wall trace then pins it onto the grenade itself)
 	{
 		float		range, height, side;
-		float		dirH2;
+		vec3_t		dirH;
 		vec3_t		right;
 		qboolean	haveRight;
 
+		dirH[0] = dir[0];
+		dirH[1] = dir[1];
+		dirH[2] = 0;
+		if ( VectorNormalize( dirH ) < 0.1f ) {
+			// near-vertical flight: no meaningful horizontal direction
+			VectorCopy( dir, dirH );
+		}
+
 		// horizontal perpendicular of the flight direction, same
 		// convention as cg_killcamSide (positive = to the right)
-		right[0] = dir[1];
-		right[1] = -dir[0];
+		right[0] = dirH[1];
+		right[1] = -dirH[0];
 		right[2] = 0;
 		haveRight = VectorNormalize( right ) > 0.1f;
 
@@ -758,21 +769,17 @@ static qboolean CG_KillcamCalcMissileView( void ) {
 			cg_killcamMissileAutoRange = KILLCAM_MISSILE_DEFAULT_RANGE;
 			cg_killcamMissileAutoHeight = KILLCAM_MISSILE_DEFAULT_HEIGHT;
 			cg_killcamMissileAutoSide = KILLCAM_MISSILE_DEFAULT_SIDE;
-			dirH2 = dir[0] * dir[0] + dir[1] * dir[1];
-			if ( cg_killcamViewOrgValid && haveRight && dirH2 > 0.01f ) {
+			if ( cg_killcamViewOrgValid && haveRight ) {
 				vec3_t	delta;
 
 				// decompose (previous camera - missile) in the frame
 				// the chase position is composed in below:
-				// delta = -range*dir + height*up + side*right
-				// (right is horizontal and perpendicular to dir's
-				// horizontal part, so the axes separate cleanly)
+				// delta = -range*dirH + height*up + side*right
 				VectorSubtract( cg_killcamViewOrg, missile->lerpOrigin, delta );
 				cg_killcamMissileAutoSide = DotProduct( delta, right );
 				cg_killcamMissileAutoRange =
-					-( delta[0] * dir[0] + delta[1] * dir[1] ) / dirH2;
-				cg_killcamMissileAutoHeight = delta[2]
-					+ cg_killcamMissileAutoRange * dir[2];
+					-( delta[0] * dirH[0] + delta[1] * dirH[1] );
+				cg_killcamMissileAutoHeight = delta[2];
 
 				// keep the derived offsets sane: the previous camera
 				// can be anywhere (e.g. the victim's own view far from
@@ -795,7 +802,7 @@ static qboolean CG_KillcamCalcMissileView( void ) {
 		side = cg_killcamMissileSide.string[0] != '\0'
 			? cg_killcamMissileSide.value : cg_killcamMissileAutoSide;
 
-		VectorMA( missile->lerpOrigin, -range, dir, camOrg );
+		VectorMA( missile->lerpOrigin, -range, dirH, camOrg );
 		camOrg[2] += height;
 		if ( side != 0 && haveRight ) {
 			VectorMA( camOrg, side, right, camOrg );
