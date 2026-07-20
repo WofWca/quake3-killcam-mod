@@ -102,7 +102,9 @@ static void CG_Obituary( entityState_t *ent ) {
 	// killcam: replay own deaths
 	// (CG_KillcamScheduleDeathReplay ignores obituaries that the replay
 	// itself re-fires in the killcam context)
-	if ( target == cg.snap->ps.clientNum && !following && cg_killcam.integer ) {
+	if ( target == cg.snap->ps.clientNum && cg_killcam.integer &&
+		!( following && cg_killcam.integer & 0x2 ) )
+	{
 		int subject = -1;
 
 		if ( attacker != target && attacker != ENTITYNUM_WORLD ) {

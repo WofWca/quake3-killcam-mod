@@ -133,7 +133,9 @@ CG_CVAR( cg_killcam, "cg_killcam", "1", 0,
 	"When 1, dying to another player shows a killcam: a replay of the last "
 	"few seconds with the camera at the killer, aimed at you. Ends on its "
 	"own shortly after the kill, or as soon as you respawn (clicking to "
-	"respawn still works during the replay)." )
+	"respawn still works during the replay). "
+	"When second bit is set (e.g. the value is 2), "
+	"disables killcam when spectating." )
 // Note that respawn delay after death is 1700 (see `respawnTime`).
 // Let's also use the killcam transition as an indication
 // that "you can respawn".
