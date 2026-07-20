@@ -133,6 +133,9 @@ CG_CVAR( cg_followKiller, "cg_followKiller", "0", CVAR_ARCHIVE )
 // few seconds with the camera at the killer, aimed at you. Ends on its
 // own shortly after the kill, or as soon as you respawn (clicking to
 // respawn still works during the replay).
+//
+// When second bit is set (e.g. the value is 2),
+// disables killcam when spectating.
 CG_CVAR( cg_killcam, "cg_killcam", "1", 0 )
 // Death replay timing, all in milliseconds. The view switches
 // cg_killcamStartDelay after dying; the replay covers from
