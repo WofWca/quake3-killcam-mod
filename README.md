@@ -22,6 +22,18 @@ But it also keeps running the original game logic in the background, without pas
 
 The code is actually quite concise, the initial implementation (first few commits) is ~500 lines of code.
 
+## License
+
+The whole repo is licensed under the
+[QIIIA Source License](./QIIIA%20Game%20Source%20License.txt),
+but the patches I made (some myself some vibe-coded) are dual-licensed,
+under QIIIA Source License, and GPL-2.0-or-later.
+
+I glanced over the vibe-coded parts and I saw no substantial chunks of code
+that I suspect could be from another project,
+so I would say we are clear on copyright violations.
+(But sill, as I said, better to rewrite things from scratch by hand).
+
 ## Similar projects
 
 - Thanks to @zturtleman for pioneering the split-screen mode in the [Spearmint mod](https://github.com/clover-moe/spearmint) (or [mint-arena](https://github.com/clover-moe/mint-arena) rather?), which showed how things like this can be implemeted.
