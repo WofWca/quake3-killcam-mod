@@ -159,11 +159,14 @@ CG_CVAR( cg_killcamStartOnClickDelay, "cg_killcamStartOnClickDelay", "9999999", 
 	"attack entirely. Note that only clicks within ~1.7 s of dying can "
 	"start the replay: later ones make the server respawn us, ending "
 	"the killcam as usual, so a second click still skips the replay. "
-	"Disabled by default for now, because this might cause the player "
+	"Disabled by default, because this might cause the player "
 	"to respawn by mistake if they tried to click to start killcam "
-	"but the respawn delay is already up. "
-	"TODO we probably need to make a separate command "
-	"to advance the killcam and bind it to mouse1 or something." )
+	"but the respawn delay is already up." )
+CG_CVAR( cg_killcamStartOnJumpDelay, "cg_killcamStartOnJumpDelay", "750", 0,
+	"Same, for the jump key, which (unlike attack) never respawns us, so "
+	"it can always start the replay early. The delay is just a grace "
+	"period against jumps pressed around the moment of death; -1 disables "
+	"starting on jump entirely." )
 CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2500", 0, NULL )
 CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "2500", 0, NULL )
 CG_CVAR( cg_killcamSuicides, "cg_killcamSuicides", "1", 0,
