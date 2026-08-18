@@ -66,6 +66,8 @@ static int			cg_killcamDeathKiller;
 // release) skips the start delay, since the player was likely still
 // holding fire when they died
 static qboolean		cg_killcamAttackWasUp;
+// same, for the jump key (see CG_KillcamJumpPressed)
+static qboolean		cg_killcamJumpWasUp;
 
 #ifndef KILLCAM_NO_MISSILE_CHASE
 // the missile that scored the kill, for the missile-chase camera
@@ -430,7 +432,38 @@ void CG_KillcamScheduleDeathReplay( int killerNum, int time ) {
 	cg_killcamDeathPending = qtrue;
 	cg_killcamDeathKiller = killerNum;
 	cg_killcamAttackWasUp = qfalse;
+	cg_killcamJumpWasUp = qfalse;
 	cg_killcamDeathTime = time;
+}
+
+
+/*
+==================
+CG_KillcamJumpPressed
+
+qtrue once per fresh jump press (the player was likely still holding
+jump when they died, so only a press after a release counts).
+
+Unlike attack, jump never makes the server respawn us, so it can both
+start the replay early and skip it, without a grace period.
+==================
+*/
+static qboolean CG_KillcamJumpPressed( void ) {
+	usercmd_t	cmd;
+
+	if ( !trap_GetUserCmd( trap_GetCurrentCmdNumber(), &cmd ) ) {
+		return qfalse;
+	}
+	if ( cmd.upmove <= 0 ) {
+		cg_killcamJumpWasUp = qtrue;
+		return qfalse;
+	}
+	if ( !cg_killcamJumpWasUp ) {
+		return qfalse;
+	}
+	// consume it, so holding jump doesn't also skip the replay it started
+	cg_killcamJumpWasUp = qfalse;
+	return qtrue;
 }
 
 
@@ -484,6 +517,8 @@ int CG_KillcamUpdate( int serverTime ) {
 			serverTime - cg_killcamCurDelay > cg_killcamDeathTime + postroll
 			// the player respawned (e.g. clicked): hand the view back
 			|| cg.predictedPlayerState.stats[STAT_HEALTH] > 0
+			// the player pressed jump: skip the rest of the replay
+			|| CG_KillcamJumpPressed()
 			// recording outran the playback; can't render this frame
 			|| !CG_KillcamHasSnapshotFor( serverTime - cg_killcamCurDelay ) )
 		{
@@ -529,6 +564,14 @@ int CG_KillcamUpdate( int serverTime ) {
 						startNow = qtrue;
 					}
 				}
+			}
+			// jump doesn't respawn us, so it's always allowed to
+			// start the replay early, after its own grace period
+			if ( cg_killcamStartOnJumpDelay.integer >= 0 &&
+				serverTime >= cg_killcamDeathTime + cg_killcamStartOnJumpDelay.integer &&
+				CG_KillcamJumpPressed() )
+			{
+				startNow = qtrue;
 			}
 			if ( !startNow ) {
 				return 0;
