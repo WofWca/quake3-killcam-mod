@@ -472,6 +472,18 @@ static qboolean CG_KillcamJumpPressed( void ) {
 
 /*
 ==================
+CG_KillcamCrouchHeld
+==================
+*/
+static qboolean CG_KillcamCrouchHeld( void ) {
+	usercmd_t	cmd;
+
+	return trap_GetUserCmd( trap_GetCurrentCmdNumber(), &cmd ) && cmd.upmove < 0;
+}
+
+
+/*
+==================
 CG_KillcamUpdate
 
 Runs the killcam state machine once per frame (with the live context
@@ -546,8 +558,9 @@ int CG_KillcamUpdate( int serverTime ) {
 			startDelay = 0;
 		}
 
-		// let the death register on screen before switching views
-		if ( serverTime < cg_killcamDeathTime + startDelay ) {
+		// let the death register on screen before switching views;
+		// holding crouch holds the auto-start off for longer
+		if ( serverTime < cg_killcamDeathTime + startDelay || CG_KillcamCrouchHeld() ) {
 			// a fresh attack press (click) skips the wait, once the
 			// grace period against accidental clicks has passed.
 			// Note that the server ignores attack presses of dead
