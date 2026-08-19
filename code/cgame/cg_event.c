@@ -925,7 +925,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position, int entityNum ) {
 	//
 	case EV_PLAYER_TELEPORT_IN:
 		trap_S_StartSound( NULL, es->number, CHAN_AUTO, cgs.media.teleInSound );
-		CG_SpawnEffect( position, cg.snap->ps.clientNum == clientNum && cg_thirdPerson.integer == 0 );
+		CG_SpawnEffect( position, cg.snap->ps.clientNum == clientNum && !cg.renderingThirdPerson );
 		break;
 
 	case EV_PLAYER_TELEPORT_OUT:
@@ -1015,7 +1015,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position, int entityNum ) {
 	case EV_RAILTRAIL:
 		cent->currentState.weapon = WP_RAILGUN;
 
-		if ( cent->currentState.clientNum == cg.snap->ps.clientNum && !cg_thirdPerson.integer ) 
+		if ( cent->currentState.clientNum == cg.snap->ps.clientNum && !cg.renderingThirdPerson ) 
 		{
 			VectorCopy( cg.refdef.vieworg, vec );
 			fovOffset = -0.2f * ( cgs.fov - 90.0f );
