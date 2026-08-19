@@ -119,6 +119,16 @@ void CG_S_StartLocalSoundWrapper( sfxHandle_t sfx, int channelNum ) {
 	if ( cg_soundMuted ) {
 		return;
 	}
+	// Firstly during killcam it's not great to re-announce
+	// what's already been announced during live gameplay
+	// (frag limit, lead changes, awards).
+	// Secondly, "n frags left" seems to get re-announced
+	// every time you enter or exit killcam.
+	//
+	// TODO maybe also need to ignore "powerup spawn" sounds and more?
+	if ( cg_contextNum == CG_CONTEXT_KILLCAM && channelNum == CHAN_ANNOUNCER ) {
+		return;
+	}
 	trap_S_StartLocalSound( sfx, channelNum );
 }
 
