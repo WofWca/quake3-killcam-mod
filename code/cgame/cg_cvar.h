@@ -170,6 +170,7 @@ CG_CVAR( cg_killcamStartOnClickDelay, "cg_killcamStartOnClickDelay", "9999999", 
 // period against jumps pressed around the moment of death; -1 disables
 // starting on jump entirely.
 CG_CVAR( cg_killcamStartOnJumpDelay, "cg_killcamStartOnJumpDelay", "750", 0 )
+CG_CVAR( cg_killcamSkipOnJumpDelay, "cg_killcamSkipOnJumpDelay", "750", 0 )
 CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2500", 0 )
 CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "2500", 0 )
 // When 1, suicides and world deaths (lava, falling, ...) also get a
