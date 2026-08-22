@@ -68,6 +68,9 @@ static int			cg_killcamDeathKiller;
 static qboolean		cg_killcamAttackWasUp;
 // same, for the jump key (see CG_KillcamJumpPressed)
 static qboolean		cg_killcamJumpWasUp;
+// server time before which pressing jump doesn't skip the running replay
+// (see cg_killcamSkipOnJumpDelay)
+static int			cg_killcamSkipAllowedTime;
 
 #ifndef KILLCAM_NO_MISSILE_CHASE
 // the missile that scored the kill, for the missile-chase camera
@@ -518,7 +521,7 @@ int CG_KillcamUpdate( int serverTime ) {
 			// the player respawned (e.g. clicked): hand the view back
 			|| cg.predictedPlayerState.stats[STAT_HEALTH] > 0
 			// the player pressed jump: skip the rest of the replay
-			|| CG_KillcamJumpPressed()
+			|| ( CG_KillcamJumpPressed() && serverTime >= cg_killcamSkipAllowedTime )
 			// recording outran the playback; can't render this frame
 			|| !CG_KillcamHasSnapshotFor( serverTime - cg_killcamCurDelay ) )
 		{
@@ -530,10 +533,11 @@ int CG_KillcamUpdate( int serverTime ) {
 
 	// scheduled death replay waiting to start?
 	if ( cg_killcamDeathPending ) {
-		int		replayStartTime;
-		int		oldestTime;
-		int		preroll = cg_killcamPreroll.integer;
-		int		startDelay = cg_killcamStartDelay.integer;
+		int			replayStartTime;
+		int			oldestTime;
+		qboolean	startNow = qfalse;
+		int			preroll = cg_killcamPreroll.integer;
+		int			startDelay = cg_killcamStartDelay.integer;
 
 		if ( preroll < 0 ) {
 			preroll = 0;
@@ -544,8 +548,6 @@ int CG_KillcamUpdate( int serverTime ) {
 
 		// let the death register on screen before switching views
 		if ( serverTime < cg_killcamDeathTime + startDelay ) {
-			qboolean	startNow = qfalse;
-
 			// a fresh attack press (click) skips the wait, once the
 			// grace period against accidental clicks has passed.
 			// Note that the server ignores attack presses of dead
@@ -578,6 +580,13 @@ int CG_KillcamUpdate( int serverTime ) {
 			}
 		}
 		cg_killcamDeathPending = qfalse;
+
+		cg_killcamSkipAllowedTime = serverTime;
+		if ( !startNow ) {
+			// the killcam started automatically, so a jump press around
+			// the moment it pops up probably isn't meant to skip it
+			cg_killcamSkipAllowedTime += cg_killcamSkipOnJumpDelay.integer;
+		}
 
 		// skip if the player already respawned or the game is ending
 		if ( cg.predictedPlayerState.stats[STAT_HEALTH] > 0 || cg.intermissionStarted ) {
