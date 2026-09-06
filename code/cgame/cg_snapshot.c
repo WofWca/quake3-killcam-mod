@@ -58,6 +58,13 @@ static killcamMode_t	cg_killcamMode = KILLCAM_OFF;	// of the current run
 static int			cg_killcamCurDelay;		// ms the current run lags behind live time
 static int			cg_killcamKillerNum = -1;
 
+// cg_killcamTimescale (slow mo): the replay clock runs slower than
+// real time, so the delay grows every frame. cg_killcamDelayFrac keeps
+// the sub-millisecond remainder, cg_killcamLastTime is the previous
+// frame's serverTime.
+static float		cg_killcamDelayFrac;
+static int			cg_killcamLastTime;
+
 // scheduled death replay (set when the local player gets killed)
 static qboolean		cg_killcamDeathPending;
 static int			cg_killcamDeathTime;	// cg.time when the obituary arrived
@@ -494,6 +501,28 @@ static qboolean CG_KillcamCrouchHeld( void ) {
 
 /*
 ==================
+CG_KillcamAdvanceDelay
+
+Grows (or reduces) the replay's delay behind live time
+by the fraction of this frame that the slowed-down replay clock doesn't cover.
+==================
+*/
+static void CG_KillcamAdvanceDelay( int serverTime ) {
+	float	grow;
+	int		whole;
+
+	grow = cg_killcamDelayFrac
+		+ ( serverTime - cg_killcamLastTime )
+		* ( 1.0f - cg_killcamTimescale.value );
+	whole = (int)grow;
+	cg_killcamCurDelay += whole;
+	cg_killcamDelayFrac = grow - whole;
+	cg_killcamLastTime = serverTime;
+}
+
+
+/*
+==================
 CG_KillcamUpdate
 
 Runs the killcam state machine once per frame (with the live context
@@ -534,6 +563,7 @@ int CG_KillcamUpdate( int serverTime ) {
 	if ( cg_killcamRunning && cg_killcamMode == KILLCAM_KILLER ) {
 		int postroll = cg_killcamPostroll.integer;
 
+		CG_KillcamAdvanceDelay( serverTime );
 		if ( postroll < 0 ) {
 			postroll = 0;
 		}
@@ -635,6 +665,8 @@ int CG_KillcamUpdate( int serverTime ) {
 		}
 
 		cg_killcamCurDelay = serverTime - replayStartTime;
+		cg_killcamDelayFrac = 0;
+		cg_killcamLastTime = serverTime;
 		cg_killcamKillerNum = cg_killcamDeathKiller;
 		CG_KillcamStart( replayStartTime, KILLCAM_KILLER );
 #ifndef KILLCAM_NO_MISSILE_CHASE
