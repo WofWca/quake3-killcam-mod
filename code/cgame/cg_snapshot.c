@@ -21,8 +21,8 @@ CG_ProcessSnapshots reads from the ring instead of trap_GetSnapshot.
 // How many of the most recent snapshots are kept for killcam playback.
 // The engine itself only buffers PACKET_BACKUP (32); a useful killcam
 // delay needs more history. Raw snapshot_t storage is large (~55 KB
-// each): 512 slots is ~27.6 MB of bss and covers ~25.6 s at snaps 20
-// or ~12.8 s at snaps 40.
+// each): 512 slots is ~27.6 MB of bss and covers
+// this times `cg_killcamRecordInterval` milliseconds of history.
 // TODO: consider compressing (delta encoding like the engine's) to
 // afford a longer history in less memory.
 #define KILLCAM_SNAPSHOT_BACKUP	512
@@ -83,6 +83,16 @@ static int			cg_killcamMissileStartTime;
 #endif // KILLCAM_NO_MISSILE_CHASE
 
 
+static int	cg_killcamLastRecordTime = -99999;
+static qboolean CG_KillcamShouldRecord( int serverTime ) {
+	int		delta = serverTime - cg_killcamLastRecordTime;
+
+	return (
+		delta >= cg_killcamRecordInterval.integer
+		// delta < 0 means the level restarted: record and resync
+		|| delta < 0
+	);
+}
 // `snap` is the caller's copy of snapshot `num`
 static void CG_KillcamRecordSnapshot( int num, const snapshot_t *snap ) {
 	qboolean	r;
@@ -90,6 +100,9 @@ static void CG_KillcamRecordSnapshot( int num, const snapshot_t *snap ) {
 		cg_killcamRecordedCount % KILLCAM_SNAPSHOT_BACKUP
 	];
 	if ( snap->snapFlags & SNAPFLAG_NOT_ACTIVE ) {
+		return;
+	}
+	if ( !CG_KillcamShouldRecord( snap->serverTime ) ) {
 		return;
 	}
 
@@ -106,6 +119,7 @@ static void CG_KillcamRecordSnapshot( int num, const snapshot_t *snap ) {
 	*dest = *snap;
 #endif
 	cg_killcamRecordedCount++;
+	cg_killcamLastRecordTime = snap->serverTime;
 }
 
 

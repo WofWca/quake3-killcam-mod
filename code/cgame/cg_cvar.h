@@ -140,10 +140,10 @@ CG_CVAR( cg_killcam, "cg_killcam", "1", 0 )
 // Death replay timing, all in milliseconds. The view switches
 // cg_killcamStartDelay after dying; the replay covers from
 // cg_killcamPreroll before the kill to cg_killcamPostroll after it.
-// The replay history is limited by the snapshot ring buffer (
-// see KILLCAM_SNAPSHOT_BACKUP, ~25.6 s at snaps 20,
-// ~12.8 s at snaps 40): if it no longer holds the full
-// preroll, the replay starts at the oldest recorded snapshot instead.
+// The replay history is limited by the snapshot ring buffer,
+// (`KILLCAM_SNAPSHOT_BACKUP` times `cg_killcamRecordInterval` milliseconds):
+// if it no longer holds the full preroll,
+// the replay starts at the oldest recorded snapshot instead.
 //
 // Note that respawn delay after death is 1700 (see `respawnTime`).
 // Let's also use the killcam transition as an indication
@@ -173,6 +173,20 @@ CG_CVAR( cg_killcamStartOnJumpDelay, "cg_killcamStartOnJumpDelay", "750", 0 )
 CG_CVAR( cg_killcamSkipOnJumpDelay, "cg_killcamSkipOnJumpDelay", "750", 0 )
 CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2500", 0 )
 CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "2500", 0 )
+// How often to record snapshots for the killcam, in milliseconds:
+// if we get a snapshot sooner than this since the last recorded one,
+// we'll skip it.
+// The resulting possible killcam duration will be
+// this times `KILLCAM_SNAPSHOT_BACKUP`.
+// See also `snaps` and `sv_fps` CVARs.
+//
+// TODO we probably should determine this dynamically,
+// based on the total killcam duration (the CVARs above)?
+// And maybe this should not be needed at all,
+// as we should simply always have a big enough buffer.
+// But I guess it's fun to know that we can just drop some snapshots
+// and things will still work fine.
+CG_CVAR( cg_killcamRecordInterval, "cg_killcamRecordInterval", "20", 0 )
 // When 1, suicides and world deaths (lava, falling, ...) also get a
 // killcam: a replay of ourselves (own first-person view while still
 // alive, third person after the death). When 0, only deaths caused by
