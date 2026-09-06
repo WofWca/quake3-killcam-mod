@@ -171,6 +171,10 @@ CG_CVAR( cg_killcamSkipOnJumpDelay, "cg_killcamSkipOnJumpDelay", "750", 0, NULL 
 CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2500", 0, NULL )
 CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "2500", 0, NULL )
 CG_CVAR( cg_killcamTimescale, "cg_killcamTimescale", "1", 0, NULL )
+CG_CVAR( cg_killcamTimescaleBefore, "cg_killcamTimescaleBefore", "150", 0,
+	"How much of the replay runs at cg_killcamTimescale, in milliseconds "
+	"before and after the kill." )
+CG_CVAR( cg_killcamTimescaleAfter, "cg_killcamTimescaleAfter", "250", 0, NULL )
 CG_CVAR( cg_killcamRecordInterval, "cg_killcamRecordInterval", "20", 0,
 	"How often to record snapshots for the killcam, in milliseconds: "
 	"if we get a snapshot sooner than this since the last recorded one, "
