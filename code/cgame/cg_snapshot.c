@@ -87,17 +87,18 @@ static int			cg_killcamMissileStartTime;
 // because a `snapshot_t` struct has space for `MAX_GENTITIES` ents,
 // whereas actual snaps only contain a few, so we need to copy less stuff.
 #ifndef KILLCAM_COPY_SNAPSHOT
-static void CG_KillcamRecordSnapshot( int num ) {
+// `snap` is the caller's copy of snapshot `num`
+static void CG_KillcamRecordSnapshot( int num, const snapshot_t *snap ) {
 	qboolean	r;
 	snapshot_t	*dest = &cg_killcamSnapshots[
 		cg_killcamRecordedCount % KILLCAM_SNAPSHOT_BACKUP
 	];
+	if ( snap->snapFlags & SNAPFLAG_NOT_ACTIVE ) {
+		return;
+	}
 	r = trap_GetSnapshot( num, dest );
 	if ( !r ) {
 		CG_Printf( S_COLOR_YELLOW "WARNING: expected CG_KillcamRecordSnapshot to get called only when a snapshot exists\n" );
-		return;
-	}
-	if ( dest->snapFlags & SNAPFLAG_NOT_ACTIVE ) {
 		return;
 	}
 	cg_killcamRecordedCount++;
@@ -945,7 +946,7 @@ static snapshot_t *CG_ReadNextSnapshot( void ) {
 		if ( r ) {
 			CG_AddLagometerSnapshotInfo( dest );
 #ifndef KILLCAM_COPY_SNAPSHOT
-			CG_KillcamRecordSnapshot( cgs.processedSnapshotNum );
+			CG_KillcamRecordSnapshot( cgs.processedSnapshotNum, dest );
 #else
 			CG_KillcamRecordSnapshot( dest );
 #endif
