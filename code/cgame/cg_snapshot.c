@@ -504,18 +504,32 @@ static qboolean CG_KillcamCrouchHeld( void ) {
 CG_KillcamTimescaleAt
 
 cg_killcamTimescale only applies within a window around the kill;
-outside it the replay runs at real time. The default window is wide
-enough to cover any replay.
+outside it the replay runs at real time, easing back over
+cg_killcamTimescaleFade so the speed change isn't abrupt. The default
+window is wide enough to cover any replay.
 ==================
 */
 static float CG_KillcamTimescaleAt( int replayTime ) {
 	int		offset = replayTime - cg_killcamDeathTime;
+	int		fade;
+	int		past;	// ms past the edge of the window
+	float	scale = cg_killcamTimescale.value;
 
-	if ( offset < -cg_killcamTimescaleBefore.integer
-		|| offset > cg_killcamTimescaleAfter.integer ) {
+	if ( offset < -cg_killcamTimescaleBefore.integer ) {
+		past = -cg_killcamTimescaleBefore.integer - offset;
+		fade = cg_killcamTimescaleFadeIn.integer;
+	} else if ( offset > cg_killcamTimescaleAfter.integer ) {
+		past = offset - cg_killcamTimescaleAfter.integer;
+		fade = cg_killcamTimescaleFadeOut.integer;
+	} else {
+		return scale;
+	}
+
+	// fade 0 keeps the hard cut
+	if ( past >= fade ) {
 		return 1.0f;
 	}
-	return cg_killcamTimescale.value;
+	return scale + ( 1.0f - scale ) * (float)past / fade;
 }
 /*
 ==================
