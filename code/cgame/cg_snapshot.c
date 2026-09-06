@@ -501,6 +501,24 @@ static qboolean CG_KillcamCrouchHeld( void ) {
 
 /*
 ==================
+CG_KillcamTimescaleAt
+
+cg_killcamTimescale only applies within a window around the kill;
+outside it the replay runs at real time. The default window is wide
+enough to cover any replay.
+==================
+*/
+static float CG_KillcamTimescaleAt( int replayTime ) {
+	int		offset = replayTime - cg_killcamDeathTime;
+
+	if ( offset < -cg_killcamTimescaleBefore.integer
+		|| offset > cg_killcamTimescaleAfter.integer ) {
+		return 1.0f;
+	}
+	return cg_killcamTimescale.value;
+}
+/*
+==================
 CG_KillcamAdvanceDelay
 
 Grows (or reduces) the replay's delay behind live time
@@ -513,7 +531,7 @@ static void CG_KillcamAdvanceDelay( int serverTime ) {
 
 	grow = cg_killcamDelayFrac
 		+ ( serverTime - cg_killcamLastTime )
-		* ( 1.0f - cg_killcamTimescale.value );
+		* ( 1.0f - CG_KillcamTimescaleAt( serverTime - cg_killcamCurDelay ) );
 	whole = (int)grow;
 	cg_killcamCurDelay += whole;
 	cg_killcamDelayFrac = grow - whole;
