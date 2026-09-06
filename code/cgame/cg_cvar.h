@@ -173,6 +173,7 @@ CG_CVAR( cg_killcamStartOnJumpDelay, "cg_killcamStartOnJumpDelay", "750", 0 )
 CG_CVAR( cg_killcamSkipOnJumpDelay, "cg_killcamSkipOnJumpDelay", "750", 0 )
 CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2500", 0 )
 CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "2500", 0 )
+CG_CVAR( cg_killcamTimescale, "cg_killcamTimescale", "1", 0 )
 // How often to record snapshots for the killcam, in milliseconds:
 // if we get a snapshot sooner than this since the last recorded one,
 // we'll skip it.
