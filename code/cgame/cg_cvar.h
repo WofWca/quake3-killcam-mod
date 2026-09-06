@@ -176,8 +176,14 @@ CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "2500", 0 )
 CG_CVAR( cg_killcamTimescale, "cg_killcamTimescale", "1", 0 )
 // How much of the replay runs at cg_killcamTimescale, in milliseconds
 // before and after the kill.
-CG_CVAR( cg_killcamTimescaleBefore, "cg_killcamTimescaleBefore", "150", 0 )
-CG_CVAR( cg_killcamTimescaleAfter, "cg_killcamTimescaleAfter", "250", 0 )
+CG_CVAR( cg_killcamTimescaleBefore, "cg_killcamTimescaleBefore", "20", 0 )
+CG_CVAR( cg_killcamTimescaleAfter, "cg_killcamTimescaleAfter", "20", 0 )
+// How long to ease into cg_killcamTimescale before that window and
+// back out to real time after it, in milliseconds. The fades sit
+// outside the window, so the window itself still runs at the full
+// timescale. 0 = change speed instantly.
+CG_CVAR( cg_killcamTimescaleFadeIn, "cg_killcamTimescaleFadeIn", "50", 0 )
+CG_CVAR( cg_killcamTimescaleFadeOut, "cg_killcamTimescaleFadeOut", "400", 0 )
 // How often to record snapshots for the killcam, in milliseconds:
 // if we get a snapshot sooner than this since the last recorded one,
 // we'll skip it.
