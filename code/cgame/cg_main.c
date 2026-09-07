@@ -119,17 +119,22 @@ void CG_S_StartSoundWrapper( const vec3_t origin, int entityNum, int entchannel,
 }
 
 void CG_S_StartLocalSoundWrapper( sfxHandle_t sfx, int channelNum ) {
-	if ( cg_soundMuted ) {
-		return;
-	}
+	// The announcer is an exception.
 	// Firstly during killcam it's not great to re-announce
 	// what's already been announced during live gameplay
 	// (frag limit, lead changes, awards).
 	// Secondly, "n frags left" seems to get re-announced
 	// every time you enter or exit killcam.
+	// Thirdly, you probably want to hear live game announcements
+	// even if you're watching a killcam
+	// (e.g. you might want to skip killcam when you hear "one frag left").
 	//
 	// TODO maybe also need to ignore "powerup spawn" sounds and more?
-	if ( cg_contextNum == CG_CONTEXT_KILLCAM && channelNum == CHAN_ANNOUNCER ) {
+	if ( channelNum == CHAN_ANNOUNCER ) {
+		if ( cg_contextNum == CG_CONTEXT_KILLCAM ) {
+			return;
+		}
+	} else if ( cg_soundMuted ) {
 		return;
 	}
 	trap_S_StartLocalSound( sfx, channelNum );
