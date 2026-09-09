@@ -553,6 +553,42 @@ static void CG_KillcamAdvanceDelay( int serverTime ) {
 }
 
 
+static int CG_KillcamSkipPreRespawn( int startTime ) {
+	int			oldest;
+	int			i;
+	int			aliveSince = startTime;
+	qboolean	seenAlive = qfalse;
+
+	oldest = cg_killcamRecordedCount - KILLCAM_SNAPSHOT_BACKUP;
+	if ( oldest < 0 ) {
+		oldest = 0;
+	}
+	for ( i = cg_killcamRecordedCount - 1 ; i >= oldest ; i-- ) {
+		const snapshot_t	*snap = &cg_killcamSnapshots[i % KILLCAM_SNAPSHOT_BACKUP];
+
+		if ( snap->serverTime > cg_killcamDeathTime ) {
+			continue;
+		}
+		if ( snap->serverTime <= startTime ) {
+			// alive all the way back to the requested start
+			break;
+		}
+		if ( snap->ps.pm_type != PM_DEAD ) {
+			seenAlive = qtrue;
+			aliveSince = snap->serverTime;
+			continue;
+		}
+		if ( seenAlive ) {
+			// dead again: this is an earlier death, so the replay
+			// starts at the respawn that follows it
+			return aliveSince;
+		}
+		// still in the dead snapshots of the death being replayed
+	}
+	return startTime;
+}
+
+
 /*
 ==================
 CG_KillcamUpdate
@@ -694,6 +730,10 @@ int CG_KillcamUpdate( int serverTime ) {
 			if ( replayStartTime > cg_killcamDeathTime ) {
 				replayStartTime = cg_killcamDeathTime;
 			}
+		}
+
+		if ( cg_killcamSkipPreRespawn.integer ) {
+			replayStartTime = CG_KillcamSkipPreRespawn( replayStartTime );
 		}
 
 		cg_killcamCurDelay = serverTime - replayStartTime;
