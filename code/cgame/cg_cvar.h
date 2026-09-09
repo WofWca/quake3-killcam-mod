@@ -250,6 +250,7 @@ CG_CVAR( cg_killcamMissileLookAtTarget, "cg_killcamMissileLookAtTarget", "1", 0,
 	"2 = at the target for grenades (whose lobbed arcs rarely point at "
 	"the victim), along the flight direction for the rest." )
 #endif // KILLCAM_NO_MISSILE_CHASE
+CG_CVAR( cg_killcamHitSounds, "cg_killcamHitSounds", "0", 0, NULL )
 CG_CVAR( cg_killcamTest, "cg_killcamTest", "0", 0,
 	"Killcam development / testing: when > 0, render the world this many "
 	"milliseconds in the past (from your own point of view), replayed from "
