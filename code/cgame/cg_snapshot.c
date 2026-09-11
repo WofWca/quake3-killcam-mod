@@ -263,8 +263,7 @@ it into an ET_GENERAL entity carrying an EV_MISSILE_* event, the
 explosion position in pos.trBase, and -- for direct hits -- the hit
 player in otherEntityNum (see G_MissileImpact / G_ExplodeMissile).
 Direct hits on the victim win; otherwise the explosion closest to the
-victim within splash range. Only slow, followable missiles are
-considered (rockets, grenades, BFG) -- not plasma.
+victim within splash range.
 
 Sets cg_killcamMissileNum / cg_killcamMissileExplodeTime; must be
 called after CG_KillcamStart (which resets them).
@@ -334,10 +333,8 @@ static void CG_KillcamFindMissile( int victimNum, int deathTime ) {
 			if ( es->eType != ET_GENERAL ) {
 				continue;
 			}
-			if ( es->weapon != WP_ROCKET_LAUNCHER &&
-				es->weapon != WP_GRENADE_LAUNCHER &&
-				es->weapon != WP_BFG )
-			{
+			if ( es->weapon == 0 ) {
+				// Probably not a missile but some other general entity.
 				continue;
 			}
 
