@@ -126,7 +126,7 @@ static void CG_Obituary( entityState_t *ent ) {
 			subject = target;
 		}
 		if ( subject != -1 ) {
-			CG_KillcamScheduleDeathReplay( subject, cg.time );
+			CG_KillcamScheduleDeathReplay( subject, mod, cg.time );
 		}
 	}
 
