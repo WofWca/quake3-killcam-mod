@@ -1459,7 +1459,7 @@ void CG_KillcamStart( int time, killcamMode_t mode );
 void CG_KillcamStop( void );
 killcamMode_t CG_KillcamMode( void );
 int CG_KillcamKillerNum( void );
-void CG_KillcamScheduleDeathReplay( int killerNum, int time );
+void CG_KillcamScheduleDeathReplay( int killerNum, int mod, int time );
 int CG_KillcamUpdate( int serverTime );
 #ifndef KILLCAM_NO_MISSILE_CHASE
 // the missile that scored the kill (for the missile-chase camera),
