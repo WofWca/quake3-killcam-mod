@@ -69,6 +69,7 @@ static int			cg_killcamLastTime;
 static qboolean		cg_killcamDeathPending;
 static int			cg_killcamDeathTime;	// cg.time when the obituary arrived
 static int			cg_killcamDeathKiller;
+static int			cg_killcamDeathMod;		// means of death from the obituary
 // for cg_killcamStartOnAttack: only a fresh attack press (after a
 // release) skips the start delay, since the player was likely still
 // holding fire when they died
@@ -252,6 +253,25 @@ static const entityState_t *CG_KillcamSnapEntity( const snapshot_t *snap, int nu
 	return NULL;
 }
 
+static int CG_MissileWeaponForMod( int mod ) {
+	switch ( mod ) {
+	case MOD_GRENADE:
+	case MOD_GRENADE_SPLASH:
+		return WP_GRENADE_LAUNCHER;
+	case MOD_ROCKET:
+	case MOD_ROCKET_SPLASH:
+		return WP_ROCKET_LAUNCHER;
+	case MOD_PLASMA:
+	case MOD_PLASMA_SPLASH:
+		return WP_PLASMAGUN;
+	case MOD_BFG:
+	case MOD_BFG_SPLASH:
+		return WP_BFG;
+	default:
+		return WP_NONE;
+	}
+}
+
 
 /*
 ==================
@@ -269,15 +289,22 @@ Sets cg_killcamMissileNum / cg_killcamMissileExplodeTime; must be
 called after CG_KillcamStart (which resets them).
 ==================
 */
-static void CG_KillcamFindMissile( int victimNum, int deathTime ) {
+static void CG_KillcamFindMissile( int victimNum, int mod, int deathTime ) {
 	int			i, e;
 	int			oldest;
 	float		bestDist;
 	qboolean	bestDirect;
 	int			bestSnapNum;
 	int			bestWeapon;
+	const int	modMissileWeapon = CG_MissileWeaponForMod( mod );
 
 	if ( !cg_killcamMissile.integer ) {
+		return;
+	}
+	if ( modMissileWeapon == WP_NONE && mod < MOD_NUM_MAX ) {
+		// A means of death that we know, and it's not a missile one.
+		// (an unknown one might be a non-vanilla missile weapon,
+		// see below)
 		return;
 	}
 
@@ -335,6 +362,14 @@ static void CG_KillcamFindMissile( int victimNum, int deathTime ) {
 			}
 			if ( es->weapon == 0 ) {
 				// Probably not a missile but some other general entity.
+				continue;
+			}
+			if ( es->weapon != modMissileWeapon
+				// If a mod has non-vanilla missile weapons,
+				// we probably still want to chase those missiles,
+				// so only require MOD match for weapons that we recognize.
+				&& modMissileWeapon != WP_NONE )
+			{
 				continue;
 			}
 
@@ -441,13 +476,14 @@ Called from the obituary event when the local player gets killed by
 another player. The replay itself is started later by CG_KillcamUpdate.
 ==================
 */
-void CG_KillcamScheduleDeathReplay( int killerNum, int time ) {
+void CG_KillcamScheduleDeathReplay( int killerNum, int mod, int time ) {
 	if ( cg_contextNum != CG_CONTEXT_LIVE ) {
 		// obituary events re-fired by the replay itself
 		return;
 	}
 	cg_killcamDeathPending = qtrue;
 	cg_killcamDeathKiller = killerNum;
+	cg_killcamDeathMod = mod;
 	cg_killcamAttackWasUp = qfalse;
 	cg_killcamJumpWasUp = qfalse;
 	cg_killcamDeathTime = time;
@@ -741,7 +777,8 @@ int CG_KillcamUpdate( int serverTime ) {
 #ifndef KILLCAM_NO_MISSILE_CHASE
 		// after Start (it resets the missile): find the killing missile
 		// for the missile-chase camera
-		CG_KillcamFindMissile( cg.snap->ps.clientNum, cg_killcamDeathTime );
+		CG_KillcamFindMissile( cg.snap->ps.clientNum, cg_killcamDeathMod,
+			cg_killcamDeathTime );
 #endif // KILLCAM_NO_MISSILE_CHASE
 		return cg_killcamCurDelay;
 	}
