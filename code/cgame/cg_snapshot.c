@@ -951,6 +951,20 @@ static void CG_TransitionSnapshot( void ) {
 	oldFrame = cg.snap;
 	cg.snap = cg.nextSnap;
 
+	// A bit of a hack to fix the respawn sound (`teleInSound`) not playing
+	// when the killcam is interrupted by a respawn.
+	// `CG_KillcamUpdate`, which is responsible for ending the killcam,
+	// only ends it on the next frame after respawn.
+	//
+	// TODO a proper fix would be to first process snapshots
+	// and decide to draw either the live or the killcam frame
+	// based on whether we've respawned.
+	if ( cg_contextNum == CG_CONTEXT_LIVE
+		&& cg.snap->ps.stats[STAT_HEALTH] > 0 )
+	{
+		cg_soundMuted = qfalse;
+	}
+
 	BG_PlayerStateToEntityState( &cg.snap->ps, &cg_entities[ cg.snap->ps.clientNum ].currentState, qfalse );
 	cg_entities[ cg.snap->ps.clientNum ].interpolate = qfalse;
 
