@@ -844,6 +844,29 @@ static qboolean CG_KillcamCalcMissileView( void ) {
 
 /*
 ===============
+CG_KillcamKillerCent
+
+The killer's entity in the current context, or NULL when the killer
+can't be used as a camera or a listener: not a client, ourselves, or
+not in the replayed snapshot (out of the victim's PVS).
+===============
+*/
+static centity_t *CG_KillcamKillerCent( void ) {
+	const int	killerNum = CG_KillcamKillerNum();
+
+	if ( killerNum < 0 || killerNum >= MAX_CLIENTS ||
+		killerNum == cg.snap->ps.clientNum )
+	{
+		return NULL;
+	}
+	if ( !cg_entities[killerNum].currentValid ) {
+		return NULL;
+	}
+	return &cg_entities[killerNum];
+}
+
+/*
+===============
 CG_KillcamCalcKillerFirstPersonView
 
 Death replay camera from the killer's eyes. Returns qfalse (falling
@@ -853,18 +876,10 @@ replayed snapshot or is dead.
 */
 static qboolean CG_KillcamCalcKillerFirstPersonView( void ) {
 	centity_t	*killer;
-	int			killerNum;
 	int			legsAnim;
 
-	killerNum = CG_KillcamKillerNum();
-	if ( killerNum < 0 || killerNum >= MAX_CLIENTS ||
-		killerNum == cg.snap->ps.clientNum )
-	{
-		return qfalse;
-	}
-
-	killer = &cg_entities[killerNum];
-	if ( !killer->currentValid ) {
+	killer = CG_KillcamKillerCent();
+	if ( !killer ) {
 		return qfalse;
 	}
 	if ( killer->currentState.eFlags & EF_DEAD ) {
@@ -909,17 +924,9 @@ static qboolean CG_KillcamCalcKillerView( void ) {
 	centity_t	*killer;
 	trace_t		trace;
 	vec3_t		eye, target, forward, camOrg;
-	int			killerNum;
 
-	killerNum = CG_KillcamKillerNum();
-	if ( killerNum < 0 || killerNum >= MAX_CLIENTS ||
-		killerNum == cg.snap->ps.clientNum )
-	{
-		return qfalse;
-	}
-
-	killer = &cg_entities[killerNum];
-	if ( !killer->currentValid ) {
+	killer = CG_KillcamKillerCent();
+	if ( !killer ) {
 		return qfalse;
 	}
 
@@ -939,7 +946,7 @@ static qboolean CG_KillcamCalcKillerView( void ) {
 	// ceiling doesn't put it in solid
 	VectorCopy( eye, camOrg );
 	camOrg[2] += cg_killcamHeight.value;
-	CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killerNum, MASK_SOLID );
+	CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killer->currentState.number, MASK_SOLID );
 	VectorCopy( trace.endpos, eye );
 
 	// and shift it sideways, so that neither the killer's model nor the
@@ -954,7 +961,7 @@ static qboolean CG_KillcamCalcKillerView( void ) {
 			right[1] = -forward[0];
 			right[2] = 0;
 			VectorMA( eye, cg_killcamSide.value, right, camOrg );
-			CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killerNum, MASK_SOLID );
+			CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killer->currentState.number, MASK_SOLID );
 			VectorCopy( trace.endpos, eye );
 		}
 	}
@@ -969,7 +976,7 @@ static qboolean CG_KillcamCalcKillerView( void ) {
 	// back away from the killer's head so their model is visible,
 	// without going into a wall
 	VectorMA( eye, -cg_killcamRange.value, forward, camOrg );
-	CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killerNum, MASK_SOLID );
+	CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killer->currentState.number, MASK_SOLID );
 	VectorCopy( trace.endpos, cg.refdef.vieworg );
 
 	return qtrue;
