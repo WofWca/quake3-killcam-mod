@@ -171,7 +171,7 @@ CG_CVAR( cg_killcamSkipOnJumpDelay, "cg_killcamSkipOnJumpDelay", "750", 0, NULL 
 CG_CVAR( cg_killcamSkipPreRespawn, "cg_killcamSkipPreRespawn", "1", 0,
 	"If `cg_killcamPreroll` starts at a time before we respawned, "
 	"skip to the respawn" )
-CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2500", 0, NULL )
+CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2000", 0, NULL )
 CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "2500", 0, NULL )
 CG_CVAR( cg_killcamTimescale, "cg_killcamTimescale", "1", 0, NULL )
 CG_CVAR( cg_killcamTimescaleBefore, "cg_killcamTimescaleBefore", "20", 0,
