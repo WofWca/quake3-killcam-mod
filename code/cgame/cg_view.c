@@ -1330,7 +1330,20 @@ static void CG_DrawActiveFrameCtx( int serverTime, stereoFrame_t stereoView, qbo
 
 	if ( !cg_passHidden ) {
 		// update audio positions
-		trap_S_Respatialize( cg.snap->ps.clientNum, cg.refdef.vieworg, cg.refdef.viewaxis, inwater );
+		int 		listenerNum = cg.snap->ps.clientNum;
+		centity_t	*killerCent = CG_KillcamKillerCent();
+
+		if ( cg_contextNum == CG_CONTEXT_KILLCAM
+			&& killerCent
+			&& cg_killcamKillerIsSoundListener.integer )
+		{
+			// TODO when chasing a missile, maybe also need to switch
+			// to other listener?
+			// But that would cause abrupt sound interruption?
+			listenerNum = CG_KillcamKillerNum();
+		}
+
+		trap_S_Respatialize( listenerNum, cg.refdef.vieworg, cg.refdef.viewaxis, inwater );
 	}
 
 	// make sure the lagometerSample and frame timing isn't done twice when in stereo
