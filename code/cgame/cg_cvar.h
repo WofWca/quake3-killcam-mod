@@ -162,7 +162,7 @@ CG_CVAR( cg_killcamStartOnClickDelay, "cg_killcamStartOnClickDelay", "9999999", 
 	"Disabled by default, because this might cause the player "
 	"to respawn by mistake if they tried to click to start killcam "
 	"but the respawn delay is already up." )
-CG_CVAR( cg_killcamStartOnJumpDelay, "cg_killcamStartOnJumpDelay", "750", 0,
+CG_CVAR( cg_killcamStartOnJumpDelay, "cg_killcamStartOnJumpDelay", "300", 0,
 	"Same, for the jump key, which (unlike attack) never respawns us, so "
 	"it can always start the replay early. The delay is just a grace "
 	"period against jumps pressed around the moment of death; -1 disables "
@@ -171,7 +171,7 @@ CG_CVAR( cg_killcamSkipOnJumpDelay, "cg_killcamSkipOnJumpDelay", "750", 0, NULL 
 CG_CVAR( cg_killcamSkipPreRespawn, "cg_killcamSkipPreRespawn", "1", 0,
 	"If `cg_killcamPreroll` starts at a time before we respawned, "
 	"skip to the respawn" )
-CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2500", 0, NULL )
+CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2000", 0, NULL )
 CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "2500", 0, NULL )
 CG_CVAR( cg_killcamTimescale, "cg_killcamTimescale", "1", 0, NULL )
 CG_CVAR( cg_killcamTimescaleBefore, "cg_killcamTimescaleBefore", "20", 0,
