@@ -214,6 +214,9 @@ CG_CVAR( cg_killcamFirstPerson, "cg_killcamFirstPerson", "0", 0,
 	"to third person when the killer is dead or not in the recorded data. "
 	"TODO kinda experimental. For example, there is a bug "
 	"where there are visibly 2 lightning beams." )
+CG_CVAR( cg_killcamKillerIsSoundListener, "cg_killcamKillerIsSoundListener", "1", 0,
+	"When the camera is following the killer, don't play self sounds "
+	"at full volume" )
 CG_CVAR( cg_killcamRange, "cg_killcamRange", "50", 0,
 	"Killcam camera placement: how far behind, above and to the side of "
 	"the killer's head the camera floats. The height and side offsets keep "
