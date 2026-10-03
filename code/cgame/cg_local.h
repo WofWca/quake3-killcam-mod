@@ -1625,6 +1625,7 @@ void		trap_S_StartLocalSound( sfxHandle_t sfx, int channelNum );
 extern qboolean cg_soundMuted;
 void		CG_S_StartSoundWrapper( const vec3_t origin, int entityNum, int entchannel, sfxHandle_t sfx );
 void		CG_S_StartLocalSoundWrapper( sfxHandle_t sfx, int channelNum );
+void		CG_S_StartLiveOnlyLocalSound( sfxHandle_t sfx, int channelNum );
 #define trap_S_StartSound CG_S_StartSoundWrapper
 #define trap_S_StartLocalSound CG_S_StartLocalSoundWrapper
 
