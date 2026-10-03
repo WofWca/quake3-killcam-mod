@@ -867,7 +867,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position, int entityNum ) {
 			item = &bg_itemlist[ index ];
 			// powerup pickups are global
 			if( item->pickup_sound ) {
-				trap_S_StartSound (NULL, cg.snap->ps.clientNum, CHAN_AUTO, trap_S_RegisterSound( item->pickup_sound, qfalse ) );
+				trap_S_StartLocalSound ( trap_S_RegisterSound( item->pickup_sound, qfalse ), CHAN_AUTO );
 			}
 
 			// show icon and name on status bar
@@ -1061,10 +1061,10 @@ void CG_EntityEvent( centity_t *cent, vec3_t position, int entityNum ) {
 
 	case EV_GLOBAL_SOUND:	// play from the player's head so it never diminishes
 		if ( cgs.gameSounds[ es->eventParm ] ) {
-			trap_S_StartSound (NULL, cg.snap->ps.clientNum, CHAN_AUTO, cgs.gameSounds[ es->eventParm ] );
+			trap_S_StartLocalSound( cgs.gameSounds[ es->eventParm ], CHAN_AUTO );
 		} else {
 			s = CG_ConfigString( CS_SOUNDS + es->eventParm );
-			trap_S_StartSound (NULL, cg.snap->ps.clientNum, CHAN_AUTO, CG_CustomSound( es->number, s ) );
+			trap_S_StartLocalSound( CG_CustomSound( es->number, s ), CHAN_AUTO );
 		}
 		break;
 
