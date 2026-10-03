@@ -118,6 +118,15 @@ void CG_S_StartSoundWrapper( const vec3_t origin, int entityNum, int entchannel,
 	trap_S_StartSound( origin, entityNum, entchannel, sfx );
 }
 
+// Plays the sound live, even while the live context is hidden
+// behind the killcam replay, and doesn't replay it in the killcam.
+void CG_S_StartLiveOnlyLocalSound( sfxHandle_t sfx, int channelNum ) {
+	if ( cg_contextNum == CG_CONTEXT_KILLCAM ) {
+		return;
+	}
+	trap_S_StartLocalSound( sfx, channelNum );
+}
+
 void CG_S_StartLocalSoundWrapper( sfxHandle_t sfx, int channelNum ) {
 	// The announcer and some global sounds are an exception.
 	// Firstly during killcam it's not great to re-announce
@@ -130,10 +139,10 @@ void CG_S_StartLocalSoundWrapper( sfxHandle_t sfx, int channelNum ) {
 	// (e.g. you might want to skip killcam when you hear "one frag left").
 	if ( channelNum == CHAN_ANNOUNCER
 		|| sfx == cgs.media.powerupRespawnSound ) {
-		if ( cg_contextNum == CG_CONTEXT_KILLCAM ) {
-			return;
-		}
-	} else if ( cg_soundMuted ) {
+		CG_S_StartLiveOnlyLocalSound( sfx, channelNum );
+		return;
+	}
+	if ( cg_soundMuted ) {
 		return;
 	}
 	trap_S_StartLocalSound( sfx, channelNum );
