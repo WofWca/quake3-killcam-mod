@@ -867,7 +867,8 @@ void CG_EntityEvent( centity_t *cent, vec3_t position, int entityNum ) {
 			item = &bg_itemlist[ index ];
 			// powerup pickups are global
 			if( item->pickup_sound ) {
-				trap_S_StartLocalSound ( trap_S_RegisterSound( item->pickup_sound, qfalse ), CHAN_AUTO );
+				// Like the announcer, see `CG_S_StartLocalSoundWrapper`.
+				CG_S_StartLiveOnlyLocalSound( trap_S_RegisterSound( item->pickup_sound, qfalse ), CHAN_AUTO );
 			}
 
 			// show icon and name on status bar
