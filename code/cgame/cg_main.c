@@ -119,7 +119,7 @@ void CG_S_StartSoundWrapper( const vec3_t origin, int entityNum, int entchannel,
 }
 
 void CG_S_StartLocalSoundWrapper( sfxHandle_t sfx, int channelNum ) {
-	// The announcer is an exception.
+	// The announcer and some global sounds are an exception.
 	// Firstly during killcam it's not great to re-announce
 	// what's already been announced during live gameplay
 	// (frag limit, lead changes, awards).
@@ -128,9 +128,8 @@ void CG_S_StartLocalSoundWrapper( sfxHandle_t sfx, int channelNum ) {
 	// Thirdly, you probably want to hear live game announcements
 	// even if you're watching a killcam
 	// (e.g. you might want to skip killcam when you hear "one frag left").
-	//
-	// TODO maybe also need to ignore "powerup spawn" sounds and more?
-	if ( channelNum == CHAN_ANNOUNCER ) {
+	if ( channelNum == CHAN_ANNOUNCER
+		|| sfx == cgs.media.powerupRespawnSound ) {
 		if ( cg_contextNum == CG_CONTEXT_KILLCAM ) {
 			return;
 		}
@@ -513,6 +512,7 @@ static void CG_RegisterSounds( void ) {
 	cgs.media.noAmmoSound = trap_S_RegisterSound( "sound/weapons/noammo.wav", qfalse );
 
 	cgs.media.talkSound = trap_S_RegisterSound( "sound/player/talk.wav", qfalse );
+	cgs.media.powerupRespawnSound = trap_S_RegisterSound( "sound/items/poweruprespawn.wav", qfalse );
 	cgs.media.landSound = trap_S_RegisterSound( "sound/player/land1.wav", qfalse);
 
 	cgs.media.hitSounds[0] = trap_S_RegisterSound( "sound/feedback/hit25.wav", qfalse );
