@@ -173,6 +173,14 @@ CG_CVAR( cg_killcamSkipPreRespawn, "cg_killcamSkipPreRespawn", "1", 0,
 	"skip to the respawn" )
 CG_CVAR( cg_killcamPreroll, "cg_killcamPreroll", "2000", 0, NULL )
 CG_CVAR( cg_killcamPostroll, "cg_killcamPostroll", "2500", 0, NULL )
+CG_CVAR( cg_killcamFastForward, "cg_killcamFastForward", "0", 0,
+	"When the death replay ends (on its own, or skipped with jump), "
+	"instead of cutting to the live view, fast-forward the replay "
+	"until it catches up with real time. "
+	"This is the playback rate of that fast-forward (4 = 4x speed). "
+	"0 = off: cut to the live view right away. "
+	"Recommended value: 1.5 and higher (or 0). "
+	"Pressing jump during the fast-forward skips it. " )
 CG_CVAR( cg_killcamTimescale, "cg_killcamTimescale", "1", 0, NULL )
 CG_CVAR( cg_killcamTimescaleBefore, "cg_killcamTimescaleBefore", "20", 0,
 	"How much of the replay runs at cg_killcamTimescale, in milliseconds "
