@@ -64,6 +64,9 @@ static int			cg_killcamKillerNum = -1;
 // frame's serverTime.
 static float		cg_killcamDelayFrac;
 static int			cg_killcamLastTime;
+// cg_killcamFastForward: the replay is over, and its clock is running
+// faster than real time to catch up with the live view
+static qboolean		cg_killcamFastForwarding;
 
 // scheduled death replay (set when the local player gets killed)
 static qboolean		cg_killcamDeathPending;
@@ -211,6 +214,7 @@ void CG_KillcamStart( int time, killcamMode_t mode ) {
 	}
 
 	cg_killcamMode = mode;
+	cg_killcamFastForwarding = qfalse;
 #ifndef KILLCAM_NO_MISSILE_CHASE
 	cg_killcamMissileNum = -1;
 #endif // KILLCAM_NO_MISSILE_CHASE
@@ -455,11 +459,25 @@ static void CG_KillcamFindMissile( int victimNum, int mod, int deathTime ) {
 void CG_KillcamStop( void ) {
 	cg_killcamRunning = qfalse;
 	cg_killcamMode = KILLCAM_OFF;
+	cg_killcamFastForwarding = qfalse;
 }
 
 
 killcamMode_t CG_KillcamMode( void ) {
 	return cg_killcamRunning ? cg_killcamMode : KILLCAM_OFF;
+}
+
+
+/*
+==================
+CG_KillcamFastForwarding
+
+qtrue while the finished replay is catching up with the live view
+(see cg_killcamFastForward)
+==================
+*/
+qboolean CG_KillcamFastForwarding( void ) {
+	return cg_killcamRunning && cg_killcamFastForwarding;
 }
 
 
@@ -570,15 +588,24 @@ CG_KillcamAdvanceDelay
 
 Grows (or reduces) the replay's delay behind live time
 by the fraction of this frame that the slowed-down replay clock doesn't cover.
+When fast-forwarding, the replay clock is faster than real time instead,
+so the delay shrinks.
 ==================
 */
 static void CG_KillcamAdvanceDelay( int serverTime ) {
 	float	grow;
 	int		whole;
+	float	timescale;
+
+	if ( cg_killcamFastForwarding ) {
+		timescale = cg_killcamFastForward.value;
+	} else {
+		timescale = CG_KillcamTimescaleAt( serverTime - cg_killcamCurDelay );
+	}
 
 	grow = cg_killcamDelayFrac
 		+ ( serverTime - cg_killcamLastTime )
-		* ( 1.0f - CG_KillcamTimescaleAt( serverTime - cg_killcamCurDelay ) );
+		* ( 1.0f - timescale );
 	whole = (int)grow;
 	cg_killcamCurDelay += whole;
 	cg_killcamDelayFrac = grow - whole;
@@ -624,6 +651,33 @@ static int CG_KillcamSkipPreRespawn( int startTime ) {
 
 /*
 ==================
+CG_KillcamUpdateFastForward
+
+CG_KillcamUpdate while the finished death replay is catching up with
+the live view (CG_KillcamAdvanceDelay makes the delay shrink).
+==================
+*/
+static int CG_KillcamUpdateFastForward( int serverTime ) {
+	CG_KillcamAdvanceDelay( serverTime );
+	if (
+		// caught up
+		cg_killcamCurDelay <= 0
+		// the player respawned: hand the view back right away
+		|| cg.predictedPlayerState.stats[STAT_HEALTH] > 0
+		// the player pressed jump: skip the fast-forward
+		|| CG_KillcamJumpPressed()
+		// recording outran the playback; can't render this frame
+		|| !CG_KillcamHasSnapshotFor( serverTime - cg_killcamCurDelay ) )
+	{
+		CG_KillcamStop();
+		return 0;
+	}
+	return cg_killcamCurDelay;
+}
+
+
+/*
+==================
 CG_KillcamUpdate
 
 Runs the killcam state machine once per frame (with the live context
@@ -664,22 +718,39 @@ int CG_KillcamUpdate( int serverTime ) {
 	if ( cg_killcamRunning && cg_killcamMode == KILLCAM_KILLER ) {
 		int postroll = cg_killcamPostroll.integer;
 
+		if ( cg_killcamFastForwarding ) {
+			return CG_KillcamUpdateFastForward( serverTime );
+		}
+
 		CG_KillcamAdvanceDelay( serverTime );
 		if ( postroll < 0 ) {
 			postroll = 0;
 		}
 		if (
-			// replay finished
-			serverTime - cg_killcamCurDelay > cg_killcamDeathTime + postroll
 			// the player respawned (e.g. clicked): hand the view back
-			|| cg.predictedPlayerState.stats[STAT_HEALTH] > 0
-			// the player pressed jump: skip the rest of the replay
-			|| ( CG_KillcamJumpPressed() && serverTime >= cg_killcamSkipAllowedTime )
+			// right away, they need to see what they're doing
+			cg.predictedPlayerState.stats[STAT_HEALTH] > 0
 			// recording outran the playback; can't render this frame
 			|| !CG_KillcamHasSnapshotFor( serverTime - cg_killcamCurDelay ) )
 		{
 			CG_KillcamStop();
 			return 0;
+		}
+		if (
+			// replay finished
+			serverTime - cg_killcamCurDelay > cg_killcamDeathTime + postroll
+			// the player pressed jump: skip the rest of the replay
+			|| ( CG_KillcamJumpPressed() && serverTime >= cg_killcamSkipAllowedTime ) )
+		{
+			if ( cg_killcamFastForward.value == 0 ) {
+				CG_KillcamStop();
+				return 0;
+			}
+			// instead of cutting to the live view, catch up with it
+			//
+			// TODO should probably switch to own camera here?
+			// To stop "spying" on the killer, and maybe for more smoother look.
+			cg_killcamFastForwarding = qtrue;
 		}
 		return cg_killcamCurDelay;
 	}
