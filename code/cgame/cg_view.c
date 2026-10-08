@@ -1056,7 +1056,11 @@ static int CG_CalcViewValues( void ) {
 
 	cg_killcamRenderingFirstPerson = qfalse;
 	killcamCameraPlaced = qfalse;
-	if ( cg_contextNum == CG_CONTEXT_KILLCAM && CG_KillcamMode() == KILLCAM_KILLER ) {
+	// while fast-forwarding, the camera is back at the player's own view,
+	// so that the switch to the live view at the end is seamless
+	if ( cg_contextNum == CG_CONTEXT_KILLCAM && CG_KillcamMode() == KILLCAM_KILLER
+		&& !CG_KillcamFastForwarding() )
+	{
 #ifndef KILLCAM_NO_MISSILE_CHASE
 		if ( CG_KillcamCalcMissileView() ) {
 			// camera is chasing the killing missile
@@ -1335,6 +1339,7 @@ static void CG_DrawActiveFrameCtx( int serverTime, stereoFrame_t stereoView, qbo
 
 		if ( cg_contextNum == CG_CONTEXT_KILLCAM
 			&& killerCent
+			&& !CG_KillcamFastForwarding()
 			&& cg_killcamKillerIsSoundListener.integer )
 		{
 			// TODO when chasing a missile, maybe also need to switch
