@@ -181,17 +181,17 @@ CG_CVAR( cg_killcamFastForward, "cg_killcamFastForward", "0", 0,
 	"0 = off: cut to the live view right away. "
 	"Recommended value: 1.5 and higher (or 0). "
 	"Pressing jump during the fast-forward skips it. " )
-CG_CVAR( cg_killcamTimescale, "cg_killcamTimescale", "1", 0, NULL )
-CG_CVAR( cg_killcamTimescaleBefore, "cg_killcamTimescaleBefore", "20", 0,
-	"How much of the replay runs at cg_killcamTimescale, in milliseconds "
+CG_CVAR( cg_killcamKillTimescale, "cg_killcamKillTimescale", "1", 0, NULL )
+CG_CVAR( cg_killcamKillTimescaleBefore, "cg_killcamKillTimescaleBefore", "20", 0,
+	"How much of the replay runs at cg_killcamKillTimescale, in milliseconds "
 	"before and after the kill." )
-CG_CVAR( cg_killcamTimescaleAfter, "cg_killcamTimescaleAfter", "20", 0, NULL )
-CG_CVAR( cg_killcamTimescaleFadeIn, "cg_killcamTimescaleFadeIn", "50", 0,
-	"How long to ease into cg_killcamTimescale before that window and "
+CG_CVAR( cg_killcamKillTimescaleAfter, "cg_killcamKillTimescaleAfter", "20", 0, NULL )
+CG_CVAR( cg_killcamKillTimescaleFadeIn, "cg_killcamKillTimescaleFadeIn", "50", 0,
+	"How long to ease into cg_killcamKillTimescale before that window and "
 	"back out to real time after it, in milliseconds. The fades sit "
 	"outside the window, so the window itself still runs at the full "
 	"timescale. 0 = change speed instantly." )
-CG_CVAR( cg_killcamTimescaleFadeOut, "cg_killcamTimescaleFadeOut", "400", 0, NULL )
+CG_CVAR( cg_killcamKillTimescaleFadeOut, "cg_killcamKillTimescaleFadeOut", "400", 0, NULL )
 CG_CVAR( cg_killcamRecordInterval, "cg_killcamRecordInterval", "20", 0,
 	"How often to record snapshots for the killcam, in milliseconds: "
 	"if we get a snapshot sooner than this since the last recorded one, "

@@ -58,7 +58,7 @@ static killcamMode_t	cg_killcamMode = KILLCAM_OFF;	// of the current run
 static int			cg_killcamCurDelay;		// ms the current run lags behind live time
 static int			cg_killcamKillerNum = -1;
 
-// cg_killcamTimescale (slow mo): the replay clock runs slower than
+// cg_killcamKillTimescale (slow mo): the replay clock runs slower than
 // real time, so the delay grows every frame. cg_killcamDelayFrac keeps
 // the sub-millisecond remainder, cg_killcamLastTime is the previous
 // frame's serverTime.
@@ -554,9 +554,9 @@ static qboolean CG_KillcamCrouchHeld( void ) {
 ==================
 CG_KillcamTimescaleAt
 
-cg_killcamTimescale only applies within a window around the kill;
+cg_killcamKillTimescale only applies within a window around the kill;
 outside it the replay runs at real time, easing back over
-cg_killcamTimescaleFade so the speed change isn't abrupt. The default
+cg_killcamKillTimescaleFade so the speed change isn't abrupt. The default
 window is wide enough to cover any replay.
 ==================
 */
@@ -564,14 +564,14 @@ static float CG_KillcamTimescaleAt( int replayTime ) {
 	int		offset = replayTime - cg_killcamDeathTime;
 	int		fade;
 	int		past;	// ms past the edge of the window
-	float	scale = cg_killcamTimescale.value;
+	float	scale = cg_killcamKillTimescale.value;
 
-	if ( offset < -cg_killcamTimescaleBefore.integer ) {
-		past = -cg_killcamTimescaleBefore.integer - offset;
-		fade = cg_killcamTimescaleFadeIn.integer;
-	} else if ( offset > cg_killcamTimescaleAfter.integer ) {
-		past = offset - cg_killcamTimescaleAfter.integer;
-		fade = cg_killcamTimescaleFadeOut.integer;
+	if ( offset < -cg_killcamKillTimescaleBefore.integer ) {
+		past = -cg_killcamKillTimescaleBefore.integer - offset;
+		fade = cg_killcamKillTimescaleFadeIn.integer;
+	} else if ( offset > cg_killcamKillTimescaleAfter.integer ) {
+		past = offset - cg_killcamKillTimescaleAfter.integer;
+		fade = cg_killcamKillTimescaleFadeOut.integer;
 	} else {
 		return scale;
 	}
