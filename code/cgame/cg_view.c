@@ -693,12 +693,27 @@ static qboolean CG_KillcamCalcMissileView( void ) {
 		return qfalse;
 	}
 
-	if ( cg.time >= CG_KillcamMissileExplodeTime() ) {
-		// after the explosion: hold the last chase position, watching
-		// the victim (and their gibs)
+	missile = &cg_entities[missileNum];
+	if ( cg.time >= CG_KillcamMissileExplodeTime() ||
+		!missile->currentValid ||
+		missile->currentState.eType != ET_MISSILE )
+	{
+		// There is no missile to chase (anymore). What's displayed is
+		// decided by the entity's state and not by the explosion time
+		// alone: with `cg_gibsNoLerpDelay`
+		// (https://github.com/WofWca/quake3-better-gibs-mod)
+		// the missile turns into its explosion
+		// up to a whole snapshot ahead of `cg.time`
+		// (see `CG_TransitionNoLerpEntities`).
+		// (the time check is still needed: after the explosion
+		// the server may reuse the entity number for another missile)
 		if ( !cg_killcamMissileHoldValid ) {
+			// the chase hasn't begun
 			return qfalse;
 		}
+		// Once the chase has begun we never cut back to the killer:
+		// hold the last chase position, watching the victim
+		// (and their gibs)
 		VectorCopy( cg_killcamMissileHoldOrg, cg.refdef.vieworg );
 		CG_KillcamTargetPoint( target );
 		VectorSubtract( target, cg.refdef.vieworg, dir );
@@ -707,12 +722,6 @@ static qboolean CG_KillcamCalcMissileView( void ) {
 		}
 		vectoangles( dir, cg.refdefViewAngles );
 		return qtrue;
-	}
-
-	missile = &cg_entities[missileNum];
-	if ( !missile->currentValid || missile->currentState.eType != ET_MISSILE ) {
-		// not fired yet, or out of the victim's recorded PVS
-		return qfalse;
 	}
 
 	// see the comment in CG_KillcamCalcKillerView
