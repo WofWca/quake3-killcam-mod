@@ -558,6 +558,8 @@ cg_killcamKillTimescale only applies within a window around the kill;
 outside it the replay runs at real time, easing back over
 cg_killcamKillTimescaleFade so the speed change isn't abrupt. The default
 window is wide enough to cover any replay.
+The result is relative to cg_killcamBaseTimescale, which applies to
+the whole replay.
 ==================
 */
 static float CG_KillcamTimescaleAt( int replayTime ) {
@@ -600,7 +602,8 @@ static void CG_KillcamAdvanceDelay( int serverTime ) {
 	if ( cg_killcamFastForwarding ) {
 		timescale = cg_killcamFastForward.value;
 	} else {
-		timescale = CG_KillcamTimescaleAt( serverTime - cg_killcamCurDelay );
+		timescale = cg_killcamBaseTimescale.value
+			* CG_KillcamTimescaleAt( serverTime - cg_killcamCurDelay );
 	}
 
 	grow = cg_killcamDelayFrac
@@ -730,6 +733,11 @@ int CG_KillcamUpdate( int serverTime ) {
 			// the player respawned (e.g. clicked): hand the view back
 			// right away, they need to see what they're doing
 			cg.predictedPlayerState.stats[STAT_HEALTH] > 0
+
+			// A timescale above 1 caught up with the live view.
+			// Not super necessary to handle this.
+			// || cg_killcamCurDelay <= 0
+
 			// recording outran the playback; can't render this frame
 			|| !CG_KillcamHasSnapshotFor( serverTime - cg_killcamCurDelay ) )
 		{

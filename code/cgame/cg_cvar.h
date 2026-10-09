@@ -181,6 +181,11 @@ CG_CVAR( cg_killcamFastForward, "cg_killcamFastForward", "0", 0,
 	"0 = off: cut to the live view right away. "
 	"Recommended value: 1.5 and higher (or 0). "
 	"Pressing jump during the fast-forward skips it. " )
+CG_CVAR( cg_killcamBaseTimescale, "cg_killcamBaseTimescale", "1", 0,
+	"Playback rate of the whole killcam replay. "
+	"Like the regular `timescale`, but only for the killcam. "
+	"cg_killcamKillTimescale multiplies on top of this. "
+	"Doesn't affect cg_killcamFastForward." )
 CG_CVAR( cg_killcamKillTimescale, "cg_killcamKillTimescale", "1", 0, NULL )
 CG_CVAR( cg_killcamKillTimescaleBefore, "cg_killcamKillTimescaleBefore", "20", 0,
 	"How much of the replay runs at cg_killcamKillTimescale, in milliseconds "
