@@ -57,6 +57,59 @@ const char	*CG_PlaceString( int rank ) {
 
 /*
 =============
+CG_KillcamFindWitness
+
+The closest living player in the current snapshot that has a line of
+sight with the local player, or -1 if there is none. Used as the killcam
+subject for deaths that nobody else is responsible for.
+=============
+*/
+static int CG_KillcamFindWitness( void ) {
+	const playerState_t	*ps = &cg.snap->ps;
+	vec3_t		start, end;
+	trace_t		trace;
+	int			i;
+	int			best = -1;
+	float		dist, bestDist = 0;
+
+	VectorCopy( ps->origin, start );
+	start[2] += ps->viewheight;
+
+	for ( i = 0; i < cg.snap->numEntities; i++ ) {
+		const entityState_t	*es = &cg.snap->entities[i];
+
+		if ( es->eType != ET_PLAYER || es->number >= MAX_CLIENTS ||
+			es->number == ps->clientNum || ( es->eFlags & EF_DEAD ) )
+		{
+			continue;
+		}
+
+		// the entity's lerpOrigin might not be up to date yet at the time
+		// the events are fired, so use the snapshot's origin
+		VectorCopy( es->pos.trBase, end );
+		end[2] += DEFAULT_VIEWHEIGHT;
+
+		dist = DistanceSquared( start, end );
+		if ( best != -1 && dist >= bestDist ) {
+			continue;
+		}
+
+		// CONTENTS_SOLID only: other players don't block the view
+		CG_Trace( &trace, start, vec3_origin, vec3_origin, end, ps->clientNum, CONTENTS_SOLID );
+		if ( trace.fraction < 1.0 ) {
+			continue;
+		}
+
+		best = es->number;
+		bestDist = dist;
+	}
+
+	return best;
+}
+
+
+/*
+=============
 CG_Obituary
 =============
 */
@@ -120,10 +173,17 @@ static void CG_Obituary( entityState_t *ent ) {
 			// event from another player (CG_DamageFeedback).
 			subject = cg.attackerClientNum;
 		} else if ( cg_killcamSuicides.integer ) {
-			// plain suicide / world death: the camera code falls back
-			// to a third-person view of ourselves when the subject is
-			// the victim
-			subject = target;
+			// plain suicide / world death: show it from the side of
+			// the closest player that could see us die
+			if ( cg_killcamFollowSuicideWitness.integer ) {
+				subject = CG_KillcamFindWitness();
+			}
+			if ( subject == -1 ) {
+				// nobody around: the camera code falls back to a
+				// third-person view of ourselves when the subject is
+				// the victim
+				subject = target;
+			}
 		}
 		if ( subject != -1 ) {
 			CG_KillcamScheduleDeathReplay( subject, mod, cg.time );

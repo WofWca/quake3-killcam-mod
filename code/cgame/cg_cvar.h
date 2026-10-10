@@ -220,6 +220,11 @@ CG_CVAR( cg_killcamLastAttacker, "cg_killcamLastAttacker", "7500", 0,
 	"this many milliseconds before the death (e.g. knocked us off a "
 	"ledge), show the killcam from their side instead. Works regardless "
 	"of cg_killcamSuicides. 0 = off." )
+CG_CVAR( cg_killcamFollowSuicideWitness, "cg_killcamFollowSuicideWitness", "1", 0,
+	"For suicides and world deaths with no last attacker (see "
+	"cg_killcamLastAttacker): when 1, show the killcam from the side of "
+	"the closest living player who had a line of sight with us at the "
+	"time of death, if there is one. Requires cg_killcamSuicides." )
 CG_CVAR( cg_killcamFirstPerson, "cg_killcamFirstPerson", "0", 0,
 	"When 1, the death replay is shown from the killer's eyes (with their "
 	"view weapon), like a classic killcam. When 0, a third-person camera "
