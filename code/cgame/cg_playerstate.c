@@ -67,11 +67,10 @@ void CG_CheckAmmo( void ) {
 CG_DamageFeedback
 ==============
 */
-void CG_DamageFeedback( int yawByte, int pitchByte, int damage ) {
+void CG_DamageFeedback( int yawByte, int pitchByte, int damage, int attacker ) {
 	float		left, front, up;
 	float		kick;
 	int			health;
-	int			attacker;
 	float		scale;
 	vec3_t		dir;
 	vec3_t		angles;
@@ -81,9 +80,6 @@ void CG_DamageFeedback( int yawByte, int pitchByte, int damage ) {
 
 	// show the attacking player's head and name in corner
 	// but only if client is valid
-
-	//attacker = cg.predictedPlayerState.persistant[PERS_ATTACKER]; ?
-	attacker = cg.snap->ps.persistant[PERS_ATTACKER]; 
 
 	if ( (unsigned)attacker < MAX_CLIENTS && attacker != cg.snap->ps.clientNum ) {
 		// dont do it when cg_draw2d = 0 ?
@@ -492,7 +488,8 @@ void CG_TransitionPlayerState( playerState_t *ps, playerState_t *ops ) {
 
 	// damage events (player is getting wounded)
 	if ( ps->damageEvent != ops->damageEvent && ps->damageCount ) {
-		CG_DamageFeedback( ps->damageYaw, ps->damagePitch, ps->damageCount );
+		CG_DamageFeedback( ps->damageYaw, ps->damagePitch, ps->damageCount,
+			ps->persistant[PERS_ATTACKER] );
 	}
 
 	// respawning / map restart
