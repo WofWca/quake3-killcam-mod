@@ -694,6 +694,61 @@ static int CG_KillcamSkipPreRespawn( int startTime ) {
 
 /*
 ==================
+CG_KillcamReplayStartTime
+
+When the replay of a kill at the given time should start: the preroll
+before it, or as much of it as the recorded history still holds. The
+kill itself must be in the recorded history.
+==================
+*/
+static int CG_KillcamReplayStartTime( int deathTime ) {
+	const int	oldestTime = CG_KillcamOldestSnapshotTime();
+	int			preroll = cg_killcamPreroll.integer;
+	int			replayStartTime;
+
+	if ( preroll < 0 ) {
+		preroll = 0;
+	}
+
+	// if the ring no longer holds the full preroll, start at the
+	// oldest snapshot we still have (with some slack so playback
+	// doesn't ride the ring's eviction edge)
+	replayStartTime = deathTime - preroll;
+	if ( replayStartTime < oldestTime + KILLCAM_CLAMP_MARGIN ) {
+		replayStartTime = oldestTime + KILLCAM_CLAMP_MARGIN;
+		if ( replayStartTime > deathTime ) {
+			replayStartTime = deathTime;
+		}
+	}
+	return replayStartTime;
+}
+
+
+/*
+==================
+CG_KillcamStartKillReplay
+
+Starts the KILLCAM_KILLER replay, from the given time, of a kill that
+happened at deathTime
+==================
+*/
+static void CG_KillcamStartKillReplay( int serverTime, int replayStartTime,
+		int killerNum, int mod, int deathTime ) {
+	cg_killcamCurDelay = serverTime - replayStartTime;
+	cg_killcamDelayFrac = 0;
+	cg_killcamLastTime = serverTime;
+	cg_killcamKillerNum = killerNum;
+	CG_KillcamStart( replayStartTime, KILLCAM_KILLER );
+#ifndef KILLCAM_NO_MISSILE_CHASE
+	// after Start (it resets the missile): find the killing missile
+	// for the missile-chase camera
+	CG_KillcamFindMissile( cg.snap->ps.clientNum, mod, deathTime );
+#endif // KILLCAM_NO_MISSILE_CHASE
+}
+
+
+/*
+==================
 CG_KillcamUpdateFastForward
 
 CG_KillcamUpdate while the finished death replay is catching up with
@@ -808,12 +863,8 @@ int CG_KillcamUpdate( int serverTime ) {
 		int			replayStartTime;
 		int			oldestTime;
 		qboolean	startNow = qfalse;
-		int			preroll = cg_killcamPreroll.integer;
 		int			startDelay = cg_killcamStartDelay.integer;
 
-		if ( preroll < 0 ) {
-			preroll = 0;
-		}
 		if ( startDelay < 0 ) {
 			startDelay = 0;
 		}
@@ -873,32 +924,13 @@ int CG_KillcamUpdate( int serverTime ) {
 			return 0;
 		}
 
-		// if the ring no longer holds the full preroll, start at the
-		// oldest snapshot we still have (with some slack so playback
-		// doesn't ride the ring's eviction edge)
-		replayStartTime = cg_killcamDeathTime - preroll;
-		if ( replayStartTime < oldestTime + KILLCAM_CLAMP_MARGIN ) {
-			replayStartTime = oldestTime + KILLCAM_CLAMP_MARGIN;
-			if ( replayStartTime > cg_killcamDeathTime ) {
-				replayStartTime = cg_killcamDeathTime;
-			}
-		}
-
+		replayStartTime = CG_KillcamReplayStartTime( cg_killcamDeathTime );
 		if ( cg_killcamSkipPreRespawn.integer ) {
 			replayStartTime = CG_KillcamSkipPreRespawn( replayStartTime );
 		}
 
-		cg_killcamCurDelay = serverTime - replayStartTime;
-		cg_killcamDelayFrac = 0;
-		cg_killcamLastTime = serverTime;
-		cg_killcamKillerNum = cg_killcamDeathKiller;
-		CG_KillcamStart( replayStartTime, KILLCAM_KILLER );
-#ifndef KILLCAM_NO_MISSILE_CHASE
-		// after Start (it resets the missile): find the killing missile
-		// for the missile-chase camera
-		CG_KillcamFindMissile( cg.snap->ps.clientNum, cg_killcamDeathMod,
-			cg_killcamDeathTime );
-#endif // KILLCAM_NO_MISSILE_CHASE
+		CG_KillcamStartKillReplay( serverTime, replayStartTime,
+			cg_killcamDeathKiller, cg_killcamDeathMod, cg_killcamDeathTime );
 		return cg_killcamCurDelay;
 	}
 
