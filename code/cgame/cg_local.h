@@ -1465,6 +1465,7 @@ int CG_KillcamKillerNum( void );
 int CG_KillcamVictimNum( void );
 const char *CG_KillcamLabel( void );
 #ifndef KILLCAM_NO_GAME_WINNING
+qboolean CG_KillcamGameWinning( void );
 void CG_KillcamNoteKill( int killerNum, int victimNum, int mod, int time );
 #endif // KILLCAM_NO_GAME_WINNING
 void CG_KillcamScheduleDeathReplay( int killerNum, int mod, int time );

@@ -873,6 +873,19 @@ static int CG_KillcamUpdateFastForward( int serverTime ) {
 #ifndef KILLCAM_NO_GAME_WINNING
 /*
 ==================
+CG_KillcamGameWinning
+
+qtrue while the game-winning replay is running
+(see cg_killcamGameWinning)
+==================
+*/
+qboolean CG_KillcamGameWinning( void ) {
+	return cg_killcamRunning && cg_killcamGameWinningRun;
+}
+
+
+/*
+==================
 CG_KillcamNoteKill
 
 Called from the obituary event for every kill of a player by another

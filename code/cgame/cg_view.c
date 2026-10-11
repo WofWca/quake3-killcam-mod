@@ -903,6 +903,24 @@ static centity_t *CG_KillcamKillerCent( void ) {
 
 /*
 ===============
+CG_KillcamFirstPerson
+
+Whether the running replay should be shown from the killer's eyes
+===============
+*/
+static qboolean CG_KillcamFirstPerson( void ) {
+#ifndef KILLCAM_NO_GAME_WINNING
+	if ( CG_KillcamGameWinning() &&
+		cg_killcamGameWinningFirstPerson.integer != 2 )
+	{
+		return cg_killcamGameWinningFirstPerson.integer != 0;
+	}
+#endif // KILLCAM_NO_GAME_WINNING
+	return cg_killcamFirstPerson.integer != 0;
+}
+
+/*
+===============
 CG_KillcamCalcKillerFirstPersonView
 
 Death replay camera from the killer's eyes. Returns qfalse (falling
@@ -1112,13 +1130,13 @@ static int CG_CalcViewValues( void ) {
 			killcamCameraPlaced = qtrue;
 		} else
 #endif // KILLCAM_NO_MISSILE_CHASE
-		if ( cg_killcamFirstPerson.integer &&
+		if ( CG_KillcamFirstPerson() &&
 			CG_KillcamCalcKillerFirstPersonView() )
 		{
 			// camera was placed at the killer's eyes
 			cg_killcamRenderingFirstPerson = qtrue;
 			killcamCameraPlaced = qtrue;
-		} else if ( cg_killcamFirstPerson.integer &&
+		} else if ( CG_KillcamFirstPerson() &&
 			CG_KillcamKillerNum() == cg.snap->ps.clientNum &&
 			cg.snap->ps.stats[STAT_HEALTH] > 0 )
 		{
