@@ -2592,7 +2592,7 @@ static void CG_Draw2D( stereoFrame_t stereoFrame )
 	}
 
 	if ( cg_contextNum == CG_CONTEXT_KILLCAM && CG_KillcamMode() == KILLCAM_KILLER ) {
-		CG_DrawString( 320, 400, "KILLCAM", colorWhite,
+		CG_DrawString( 320, 400, CG_KillcamLabel(), colorWhite,
 			BIGCHAR_WIDTH, BIGCHAR_HEIGHT, 0, DS_CENTER | DS_SHADOW );
 	}
 

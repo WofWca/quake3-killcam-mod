@@ -225,6 +225,15 @@ CG_CVAR( cg_killcamFollowSuicideWitness, "cg_killcamFollowSuicideWitness", "1", 
 	"cg_killcamLastAttacker): when 1, show the killcam from the side of "
 	"the closest living player who had a line of sight with us at the "
 	"time of death, if there is one. Requires cg_killcamSuicides." )
+#ifndef KILLCAM_NO_GAME_WINNING
+CG_CVAR( cg_killcamGameWinning, "cg_killcamGameWinning", "1", 0,
+	"When 1, the kill that ended the game (e.g. hit the fraglimit) is "
+	"replayed for everyone who could see it when the intermission begins, "
+	"before the scoreboard is shown. When 2, the last kill is also "
+	"replayed when the game ended some other way (timelimit, "
+	"capturelimit), if it happened shortly before the end. Jump skips the "
+	"replay. Requires cg_killcam. 0 = off." )
+#endif // KILLCAM_NO_GAME_WINNING
 CG_CVAR( cg_killcamFirstPerson, "cg_killcamFirstPerson", "0", 0,
 	"When 1, the death replay is shown from the killer's eyes (with their "
 	"view weapon), like a classic killcam. When 0, a third-person camera "

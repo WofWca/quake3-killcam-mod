@@ -162,6 +162,12 @@ static void CG_Obituary( entityState_t *ent ) {
 
 	following = cg.snap->ps.pm_flags & PMF_FOLLOW;
 
+#ifndef KILLCAM_NO_GAME_WINNING
+	if ( attacker != ENTITYNUM_WORLD && attacker != target ) {
+		CG_KillcamNoteKill( attacker, target, mod, cg.time );
+	}
+#endif // KILLCAM_NO_GAME_WINNING
+
 	// killcam: replay own deaths
 	// (CG_KillcamScheduleDeathReplay ignores obituaries that the replay
 	// itself re-fires in the killcam context)
