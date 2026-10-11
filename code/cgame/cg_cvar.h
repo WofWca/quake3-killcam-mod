@@ -233,6 +233,10 @@ CG_CVAR( cg_killcamGameWinning, "cg_killcamGameWinning", "1", 0,
 	"replayed when the game ended some other way (timelimit, "
 	"capturelimit), if it happened shortly before the end. Jump skips the "
 	"replay. Requires cg_killcam. 0 = off." )
+CG_CVAR( cg_killcamGameWinningFirstPerson, "cg_killcamGameWinningFirstPerson", "1", 0,
+	"Same as cg_killcamFirstPerson, but for the game-winning replay "
+	"(cg_killcamGameWinning): 0 = third person, 1 = first person, "
+	"2 = follow cg_killcamFirstPerson." )
 #endif // KILLCAM_NO_GAME_WINNING
 CG_CVAR( cg_killcamFirstPerson, "cg_killcamFirstPerson", "0", 0,
 	"When 1, the death replay is shown from the killer's eyes (with their "
