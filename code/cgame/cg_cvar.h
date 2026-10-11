@@ -233,6 +233,15 @@ CG_CVAR( cg_killcamGameWinning, "cg_killcamGameWinning", "1", 0,
 	"replayed when the game ended some other way (timelimit, "
 	"capturelimit), if it happened shortly before the end. Jump skips the "
 	"replay. Requires cg_killcam. 0 = off." )
+CG_CVAR( cg_killcamGameWinningTimescaleBase, "cg_killcamGameWinningTimescaleBase", "1", 0,
+	"Same as cg_killcamTimescaleBase, but for the game-winning replay "
+	"(cg_killcamGameWinning), which doesn't use cg_killcamTimescaleBase. "
+	"cg_killcamGameWinningKillTimescale multiplies on top of this." )
+CG_CVAR( cg_killcamGameWinningKillTimescale, "cg_killcamGameWinningKillTimescale", "0.25", 0,
+	"Same as cg_killcamKillTimescale, but for the game-winning replay "
+	"(cg_killcamGameWinning), which doesn't use cg_killcamKillTimescale. "
+	"The window and the fades are still set by "
+	"cg_killcamKillTimescaleBefore, After, FadeIn and FadeOut." )
 CG_CVAR( cg_killcamGameWinningFirstPerson, "cg_killcamGameWinningFirstPerson", "1", 0,
 	"Same as cg_killcamFirstPerson, but for the game-winning replay "
 	"(cg_killcamGameWinning): 0 = third person, 1 = first person, "

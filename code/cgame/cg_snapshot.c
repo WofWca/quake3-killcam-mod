@@ -703,6 +703,11 @@ static float CG_KillcamTimescaleAt( int replayTime ) {
 	int		past;	// ms past the edge of the window
 	float	scale = cg_killcamKillTimescale.value;
 
+#ifndef KILLCAM_NO_GAME_WINNING
+	if ( cg_killcamGameWinningRun ) {
+		scale = cg_killcamGameWinningKillTimescale.value;
+	}
+#endif // KILLCAM_NO_GAME_WINNING
 	if ( offset < -cg_killcamKillTimescaleBefore.integer ) {
 		past = -cg_killcamKillTimescaleBefore.integer - offset;
 		fade = cg_killcamKillTimescaleFadeIn.integer;
@@ -737,8 +742,13 @@ static void CG_KillcamAdvanceDelay( int serverTime ) {
 	if ( cg_killcamFastForwarding ) {
 		timescale = cg_killcamFastForward.value;
 	} else {
-		timescale = cg_killcamTimescaleBase.value
-			* CG_KillcamTimescaleAt( serverTime - cg_killcamCurDelay );
+		timescale = cg_killcamTimescaleBase.value;
+#ifndef KILLCAM_NO_GAME_WINNING
+		if ( cg_killcamGameWinningRun ) {
+			timescale = cg_killcamGameWinningTimescaleBase.value;
+		}
+#endif // KILLCAM_NO_GAME_WINNING
+		timescale *= CG_KillcamTimescaleAt( serverTime - cg_killcamCurDelay );
 	}
 
 	grow = cg_killcamDelayFrac
