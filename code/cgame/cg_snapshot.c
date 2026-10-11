@@ -32,6 +32,19 @@ CG_ProcessSnapshots reads from the ring instead of trap_GetSnapshot.
 // edge and abort mid-replay
 #define KILLCAM_CLAMP_MARGIN	200
 
+// define KILLCAM_NO_GAME_WINNING to compile the game-winning killcam out
+#ifndef KILLCAM_NO_GAME_WINNING
+// Game-winning killcam: a kill counts as the one that ended the game if
+// the server announced the end (CS_INTERMISSION) within this many
+// milliseconds of its obituary. They normally arrive in the same
+// snapshot, but obituaries may be fired a snapshot ahead
+// (see cg_gibsNoLerpDelay).
+#define KILLCAM_WINNING_KILL_SLACK	250
+// with cg_killcamGameWinning 2: how long before the end of the game the
+// last kill may have happened to still get replayed (ms)
+#define KILLCAM_FINAL_KILL_MAX_AGE	5000
+#endif // KILLCAM_NO_GAME_WINNING
+
 // how far back from the current time to look for a snapshot in which
 // the local player is still alive (ms), see CG_KillcamLastAliveSnapshot
 #define KILLCAM_LAST_ALIVE_SCAN	1000
@@ -61,6 +74,9 @@ static qboolean		cg_killcamRunning;
 static killcamMode_t	cg_killcamMode = KILLCAM_OFF;	// of the current run
 static int			cg_killcamCurDelay;		// ms the current run lags behind live time
 static int			cg_killcamKillerNum = -1;
+// who the cameras aim at: the local player for death replays, but can be
+// anyone for the game-winning replay
+static int			cg_killcamVictimNum = -1;
 
 // cg_killcamKillTimescale (slow mo): the replay clock runs slower than
 // real time, so the delay grows every frame. cg_killcamDelayFrac keeps
@@ -86,6 +102,28 @@ static qboolean		cg_killcamJumpWasUp;
 // server time before which pressing jump doesn't skip the running replay
 // (see cg_killcamSkipOnJumpDelay)
 static int			cg_killcamSkipAllowedTime;
+
+#ifndef KILLCAM_NO_GAME_WINNING
+// game-winning killcam: the last kill of the match, as noted from the
+// obituaries (see CG_KillcamNoteKill)
+static qboolean		cg_killcamFinalKillValid;
+static int			cg_killcamFinalKillTime;	// cg.time when the obituary arrived
+static int			cg_killcamFinalKillKiller;
+static int			cg_killcamFinalKillVictim;
+static int			cg_killcamFinalKillMod;
+// the kill ended the game (e.g. hit the fraglimit), as opposed to just
+// being the last one before the game ended some other way
+static qboolean		cg_killcamFinalKillWinning;
+// the server announced the end of the game: kills past this point (the
+// game keeps running for a moment) don't replace the noted one
+static qboolean		cg_killcamFinalKillLocked;
+// the live view is (about to be) the intermission one
+static qboolean		cg_killcamIntermissionSeen;
+// the current KILLCAM_KILLER run is the game-winning replay
+static qboolean		cg_killcamGameWinningRun;
+// replay time at which the game-winning replay ends
+static int			cg_killcamGameWinningEndTime;
+#endif // KILLCAM_NO_GAME_WINNING
 
 #ifndef KILLCAM_NO_MISSILE_CHASE
 // the missile that scored the kill, for the missile-chase camera
@@ -255,27 +293,14 @@ void CG_KillcamStart( int time, killcamMode_t mode ) {
 
 	cg_killcamMode = mode;
 	cg_killcamFastForwarding = qfalse;
+#ifndef KILLCAM_NO_GAME_WINNING
+	cg_killcamGameWinningRun = qfalse;
+#endif // KILLCAM_NO_GAME_WINNING
 #ifndef KILLCAM_NO_MISSILE_CHASE
 	cg_killcamMissileNum = -1;
 #endif // KILLCAM_NO_MISSILE_CHASE
 	CG_KillcamViewReset();
 	cg_killcamRunning = qtrue;
-}
-
-
-#ifndef KILLCAM_NO_MISSILE_CHASE
-int CG_KillcamMissileNum( void ) {
-	return cg_killcamMissileNum;
-}
-
-
-int CG_KillcamMissileExplodeTime( void ) {
-	return cg_killcamMissileExplodeTime;
-}
-
-
-int CG_KillcamMissileStartTime( void ) {
-	return cg_killcamMissileStartTime;
 }
 
 
@@ -296,6 +321,51 @@ static const entityState_t *CG_KillcamSnapEntity( const snapshot_t *snap, int nu
 	}
 	return NULL;
 }
+
+
+/*
+==================
+CG_KillcamSnapClientState
+
+Whether the given client is dead and where they are in a recorded
+snapshot. Returns qfalse if they aren't in it (out of the PVS).
+==================
+*/
+static qboolean CG_KillcamSnapClientState( const snapshot_t *snap, int clientNum,
+		qboolean *dead, vec3_t origin ) {
+	const entityState_t	*es;
+
+	if ( snap->ps.clientNum == clientNum ) {
+		*dead = snap->ps.stats[STAT_HEALTH] <= 0;
+		VectorCopy( snap->ps.origin, origin );
+		return qtrue;
+	}
+	es = CG_KillcamSnapEntity( snap, clientNum );
+	if ( !es ) {
+		return qfalse;
+	}
+	// a gibbed player's entity is not an ET_PLAYER anymore
+	*dead = es->eType != ET_PLAYER || ( es->eFlags & EF_DEAD );
+	VectorCopy( es->pos.trBase, origin );
+	return qtrue;
+}
+
+
+#ifndef KILLCAM_NO_MISSILE_CHASE
+int CG_KillcamMissileNum( void ) {
+	return cg_killcamMissileNum;
+}
+
+
+int CG_KillcamMissileExplodeTime( void ) {
+	return cg_killcamMissileExplodeTime;
+}
+
+
+int CG_KillcamMissileStartTime( void ) {
+	return cg_killcamMissileStartTime;
+}
+
 
 static int CG_MissileWeaponForMod( int mod ) {
 	switch ( mod ) {
@@ -340,6 +410,7 @@ static void CG_KillcamFindMissile( int victimNum, int mod, int deathTime ) {
 	qboolean	bestDirect;
 	int			bestSnapNum;
 	int			bestWeapon;
+	vec3_t		victimOrg;
 	const int	modMissileWeapon = CG_MissileWeaponForMod( mod );
 
 	if ( !cg_killcamMissile.integer ) {
@@ -370,6 +441,8 @@ static void CG_KillcamFindMissile( int victimNum, int mod, int deathTime ) {
 	for ( i = cg_killcamRecordedCount - 1 ; i > oldest ; i-- ) {
 		const snapshot_t *snap = &cg_killcamSnapshots[i % KILLCAM_SNAPSHOT_BACKUP];
 		const snapshot_t *prev = &cg_killcamSnapshots[( i - 1 ) % KILLCAM_SNAPSHOT_BACKUP];
+		qboolean	dead, prevDead;
+		vec3_t		prevOrg;
 
 		if ( snap->serverTime > deathTime ) {
 			continue;
@@ -377,8 +450,8 @@ static void CG_KillcamFindMissile( int victimNum, int mod, int deathTime ) {
 		if ( snap->serverTime < deathTime - KILLCAM_MISSILE_DEATH_SCAN ) {
 			break;
 		}
-		if ( snap->ps.stats[STAT_HEALTH] <= 0 &&
-			prev->ps.stats[STAT_HEALTH] > 0 )
+		if ( CG_KillcamSnapClientState( snap, victimNum, &dead, victimOrg ) && dead &&
+			CG_KillcamSnapClientState( prev, victimNum, &prevDead, prevOrg ) && !prevDead )
 		{
 			bestSnapNum = i;
 			break;
@@ -422,7 +495,7 @@ static void CG_KillcamFindMissile( int victimNum, int mod, int deathTime ) {
 				dist = 0;
 			} else if ( event == EV_MISSILE_MISS || event == EV_MISSILE_MISS_METAL ) {
 				direct = qfalse;
-				dist = Distance( es->pos.trBase, snap->ps.origin );
+				dist = Distance( es->pos.trBase, victimOrg );
 			} else {
 				continue;
 			}
@@ -523,6 +596,28 @@ qboolean CG_KillcamFastForwarding( void ) {
 
 int CG_KillcamKillerNum( void ) {
 	return cg_killcamKillerNum;
+}
+
+
+int CG_KillcamVictimNum( void ) {
+	return cg_killcamVictimNum;
+}
+
+
+/*
+==================
+CG_KillcamLabel
+
+What to call the running replay on the HUD
+==================
+*/
+const char *CG_KillcamLabel( void ) {
+#ifndef KILLCAM_NO_GAME_WINNING
+	if ( cg_killcamGameWinningRun ) {
+		return cg_killcamFinalKillWinning ? "GAME WINNING KILL" : "FINAL KILL";
+	}
+#endif // KILLCAM_NO_GAME_WINNING
+	return "KILLCAM";
 }
 
 
@@ -733,16 +828,17 @@ happened at deathTime
 ==================
 */
 static void CG_KillcamStartKillReplay( int serverTime, int replayStartTime,
-		int killerNum, int mod, int deathTime ) {
+		int killerNum, int victimNum, int mod, int deathTime ) {
 	cg_killcamCurDelay = serverTime - replayStartTime;
 	cg_killcamDelayFrac = 0;
 	cg_killcamLastTime = serverTime;
 	cg_killcamKillerNum = killerNum;
+	cg_killcamVictimNum = victimNum;
 	CG_KillcamStart( replayStartTime, KILLCAM_KILLER );
 #ifndef KILLCAM_NO_MISSILE_CHASE
 	// after Start (it resets the missile): find the killing missile
 	// for the missile-chase camera
-	CG_KillcamFindMissile( cg.snap->ps.clientNum, mod, deathTime );
+	CG_KillcamFindMissile( victimNum, mod, deathTime );
 #endif // KILLCAM_NO_MISSILE_CHASE
 }
 
@@ -774,6 +870,184 @@ static int CG_KillcamUpdateFastForward( int serverTime ) {
 }
 
 
+#ifndef KILLCAM_NO_GAME_WINNING
+/*
+==================
+CG_KillcamNoteKill
+
+Called from the obituary event for every kill of a player by another
+player: the last one of the match is what the game-winning killcam
+replays.
+==================
+*/
+void CG_KillcamNoteKill( int killerNum, int victimNum, int mod, int time ) {
+	if ( cg_contextNum != CG_CONTEXT_LIVE ) {
+		// obituary events re-fired by the replay itself
+		return;
+	}
+	if ( cg_killcamFinalKillLocked ) {
+		return;
+	}
+	cg_killcamFinalKillValid = qtrue;
+	cg_killcamFinalKillWinning = qfalse;
+	cg_killcamFinalKillTime = time;
+	cg_killcamFinalKillKiller = killerNum;
+	cg_killcamFinalKillVictim = victimNum;
+	cg_killcamFinalKillMod = mod;
+}
+
+
+/*
+==================
+CG_KillcamTrackIntermission
+
+Keeps track of the game ending. Returns qtrue on the frame the live
+view switches to the intermission one.
+==================
+*/
+static qboolean CG_KillcamTrackIntermission( int serverTime ) {
+	qboolean	intermission;
+
+	if ( !cg.intermissionStarted ) {
+		cg_killcamFinalKillLocked = qfalse;
+	} else if ( !cg_killcamFinalKillLocked ) {
+		int		age = serverTime - cg_killcamFinalKillTime;
+
+		cg_killcamFinalKillLocked = qtrue;
+		cg_killcamFinalKillWinning = cg_killcamFinalKillValid &&
+			age >= 0 && age <= KILLCAM_WINNING_KILL_SLACK;
+	}
+
+	// This runs before the live context processes its snapshots for
+	// this frame, so also look at the snapshot it's about to transition
+	// to: otherwise the intermission view would get drawn for one frame
+	// before the replay.
+	intermission = cg.snap && ( cg.snap->ps.pm_type == PM_INTERMISSION ||
+		( cg.nextSnap && cg.nextSnap->ps.pm_type == PM_INTERMISSION ) );
+	if ( intermission == cg_killcamIntermissionSeen ) {
+		return qfalse;
+	}
+	cg_killcamIntermissionSeen = intermission;
+	return intermission;
+}
+
+
+/*
+==================
+CG_KillcamStartGameWinning
+
+Starts the replay of the last kill of the match, if there is a suitable
+one in the recorded history. The intermission view (and the scoreboard)
+come back when it's over.
+==================
+*/
+static qboolean CG_KillcamStartGameWinning( int serverTime ) {
+	const snapshot_t	*deathSnap = NULL;
+	int			i;
+	int			oldest;
+	int			gameEndTime = -1;
+	qboolean	dead;
+	vec3_t		origin;
+	int			postroll = cg_killcamPostroll.integer;
+
+	if ( !cg_killcamFinalKillValid ) {
+		return qfalse;
+	}
+	if ( !cg_killcamFinalKillWinning && cg_killcamGameWinning.integer < 2 ) {
+		return qfalse;
+	}
+	if ( postroll < 0 ) {
+		postroll = 0;
+	}
+
+	oldest = cg_killcamRecordedCount - KILLCAM_SNAPSHOT_BACKUP;
+	if ( oldest < 0 ) {
+		oldest = 0;
+	}
+	for ( i = cg_killcamRecordedCount - 1 ; i >= oldest ; i-- ) {
+		const snapshot_t	*snap = &cg_killcamSnapshots[i % KILLCAM_SNAPSHOT_BACKUP];
+
+		if ( snap->ps.pm_type == PM_INTERMISSION ) {
+			continue;
+		}
+		if ( gameEndTime == -1 ) {
+			// The last snapshot of the actual game. The replay must not
+			// go past it: in the next one the players are gone, and our
+			// view is on its way to the intermission point.
+			gameEndTime = snap->serverTime;
+		}
+		if ( snap->serverTime <= cg_killcamFinalKillTime ) {
+			deathSnap = snap;
+			break;
+		}
+	}
+	if ( !deathSnap ) {
+		// the kill is not in the recorded history (anymore)
+		return qfalse;
+	}
+	if ( gameEndTime < cg_killcamFinalKillTime ||
+		gameEndTime - cg_killcamFinalKillTime > KILLCAM_FINAL_KILL_MAX_AGE )
+	{
+		return qfalse;
+	}
+	// we can only show it if it happened where we could see it
+	if ( !CG_KillcamSnapClientState( deathSnap, cg_killcamFinalKillKiller, &dead, origin ) ||
+		!CG_KillcamSnapClientState( deathSnap, cg_killcamFinalKillVictim, &dead, origin ) )
+	{
+		return qfalse;
+	}
+
+	// takes over from the death replay, if we are the victim
+	cg_killcamDeathPending = qfalse;
+	cg_killcamDeathTime = cg_killcamFinalKillTime;
+
+	cg_killcamJumpWasUp = qfalse;
+	cg_killcamSkipAllowedTime = serverTime + cg_killcamSkipOnJumpDelay.integer;
+
+	CG_KillcamStartKillReplay( serverTime,
+		CG_KillcamReplayStartTime( cg_killcamFinalKillTime ),
+		cg_killcamFinalKillKiller, cg_killcamFinalKillVictim,
+		cg_killcamFinalKillMod, cg_killcamFinalKillTime );
+	// after the start: it resets these
+	cg_killcamGameWinningRun = qtrue;
+	cg_killcamGameWinningEndTime = cg_killcamFinalKillTime + postroll;
+	if ( cg_killcamGameWinningEndTime > gameEndTime ) {
+		cg_killcamGameWinningEndTime = gameEndTime;
+	}
+	return qtrue;
+}
+
+
+/*
+==================
+CG_KillcamUpdateGameWinning
+
+CG_KillcamUpdate while the game-winning replay is running
+==================
+*/
+static int CG_KillcamUpdateGameWinning( int serverTime ) {
+	CG_KillcamAdvanceDelay( serverTime );
+	if (
+		!cg_killcamGameWinning.integer
+		// the intermission is over (e.g. map_restart)
+		|| !cg_killcamIntermissionSeen
+		// replay finished
+		|| serverTime - cg_killcamCurDelay >= cg_killcamGameWinningEndTime
+		// the player pressed jump: skip the rest of the replay
+		|| ( CG_KillcamJumpPressed() && serverTime >= cg_killcamSkipAllowedTime )
+		// recording outran the playback; can't render this frame
+		|| !CG_KillcamHasSnapshotFor( serverTime - cg_killcamCurDelay ) )
+	{
+		CG_KillcamStop();
+		return 0;
+	}
+	return cg_killcamCurDelay;
+}
+
+
+#endif // KILLCAM_NO_GAME_WINNING
+
+
 /*
 ==================
 CG_KillcamUpdate
@@ -784,6 +1058,10 @@ context should be rendered this frame, or 0 to render the live view.
 ==================
 */
 int CG_KillcamUpdate( int serverTime ) {
+#ifndef KILLCAM_NO_GAME_WINNING
+	const qboolean	intermissionBegan = CG_KillcamTrackIntermission( serverTime );
+#endif // KILLCAM_NO_GAME_WINNING
+
 	// dev/test mode (cg_killcamTest <ms>) takes priority: replay of the
 	// own view at a fixed delay
 	if ( cg_killcamTest.integer > 0 ) {
@@ -812,10 +1090,25 @@ int CG_KillcamUpdate( int serverTime ) {
 		return 0;
 	}
 
+#ifndef KILLCAM_NO_GAME_WINNING
+	// game over: replay the kill that ended it. This also replaces a
+	// death replay that is still running.
+	if ( intermissionBegan && cg_killcamGameWinning.integer &&
+		CG_KillcamStartGameWinning( serverTime ) )
+	{
+		return cg_killcamCurDelay;
+	}
+#endif // KILLCAM_NO_GAME_WINNING
+
 	// death replay in progress?
 	if ( cg_killcamRunning && cg_killcamMode == KILLCAM_KILLER ) {
 		int postroll = cg_killcamPostroll.integer;
 
+#ifndef KILLCAM_NO_GAME_WINNING
+		if ( cg_killcamGameWinningRun ) {
+			return CG_KillcamUpdateGameWinning( serverTime );
+		}
+#endif // KILLCAM_NO_GAME_WINNING
 		if ( cg_killcamFastForwarding ) {
 			return CG_KillcamUpdateFastForward( serverTime );
 		}
@@ -930,7 +1223,8 @@ int CG_KillcamUpdate( int serverTime ) {
 		}
 
 		CG_KillcamStartKillReplay( serverTime, replayStartTime,
-			cg_killcamDeathKiller, cg_killcamDeathMod, cg_killcamDeathTime );
+			cg_killcamDeathKiller, cg.snap->ps.clientNum,
+			cg_killcamDeathMod, cg_killcamDeathTime );
 		return cg_killcamCurDelay;
 	}
 
