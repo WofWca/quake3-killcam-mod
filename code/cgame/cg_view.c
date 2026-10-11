@@ -599,6 +599,11 @@ static void CG_DamageBlendBlob( void ) {
 // see cg_local.h
 qboolean cg_killcamRenderingFirstPerson = qfalse;
 
+// where the victim was last seen, for when they are not the local player
+// (game-winning replay) and drop out of the replayed snapshots
+static vec3_t	cg_killcamVictimOrg;
+static qboolean	cg_killcamVictimOrgValid = qfalse;
+
 #ifndef KILLCAM_NO_MISSILE_CHASE
 // missile-chase camera "hold": where the camera was when the missile
 // exploded; it stays there watching the victim for the rest of the replay
@@ -640,6 +645,7 @@ previous replay
 ===============
 */
 void CG_KillcamViewReset( void ) {
+	cg_killcamVictimOrgValid = qfalse;
 #ifndef KILLCAM_NO_MISSILE_CHASE
 	cg_killcamMissileHoldValid = qfalse;
 	cg_killcamViewOrgValid = qfalse;
@@ -658,7 +664,28 @@ looks horizontally when level with the victim
 ===============
 */
 static void CG_KillcamTargetPoint( vec3_t target ) {
-	VectorCopy( cg.predictedPlayerState.origin, target );
+	const int	victimNum = CG_KillcamVictimNum();
+
+	if ( victimNum < 0 || victimNum >= MAX_CLIENTS ||
+		victimNum == cg.snap->ps.clientNum )
+	{
+		VectorCopy( cg.predictedPlayerState.origin, target );
+	} else {
+		centity_t	*victim = &cg_entities[victimNum];
+
+		if ( victim->currentValid ) {
+			// see the comment in CG_KillcamCalcKillerView
+			CG_SetFrameInterpolation();
+			CG_CalcEntityLerpPositions( victim );
+			VectorCopy( victim->lerpOrigin, cg_killcamVictimOrg );
+			cg_killcamVictimOrgValid = qtrue;
+		}
+		if ( cg_killcamVictimOrgValid ) {
+			VectorCopy( cg_killcamVictimOrg, target );
+		} else {
+			VectorCopy( cg.predictedPlayerState.origin, target );
+		}
+	}
 	target[2] += DEFAULT_VIEWHEIGHT + cg_killcamHeight.value;
 }
 
@@ -922,31 +949,40 @@ static qboolean CG_KillcamCalcKillerFirstPersonView( void ) {
 CG_KillcamCalcKillerView
 
 Death replay camera: place the camera at (slightly behind) the killer,
-aiming at the victim -- the recorded local player. Returns qfalse if the
-killer isn't in the replayed snapshot (out of the victim's PVS), in
-which case the caller keeps the normal view of the victim.
+aiming at the victim. Returns qfalse if the killer isn't in the replayed
+snapshot (out of the local player's PVS) or is the victim themselves,
+in which case the caller keeps the normal view of the local player.
 ===============
 */
 static qboolean CG_KillcamCalcKillerView( void ) {
 	static const vec3_t	camMins = { -6, -6, -6 };
 	static const vec3_t	camMaxs = { 6, 6, 6 };
+	const int	killerNum = CG_KillcamKillerNum();
 	centity_t	*killer;
 	trace_t		trace;
 	vec3_t		eye, target, forward, camOrg;
 
-	killer = CG_KillcamKillerCent();
-	if ( !killer ) {
-		return qfalse;
-	}
+	if ( killerNum == cg.snap->ps.clientNum ) {
+		if ( killerNum == CG_KillcamVictimNum() ) {
+			return qfalse;
+		}
+		// the local player scored the game-winning kill
+		VectorCopy( cg.predictedPlayerState.origin, eye );
+	} else {
+		killer = CG_KillcamKillerCent();
+		if ( !killer ) {
+			return qfalse;
+		}
 
-	// cg.frameInterpolation is normally set later in the frame, by
-	// CG_AddPacketEntities. Without this the killer's lerpOrigin here
-	// is computed with the previous frame's interpolation fraction and
-	// disagrees with where the killer model is actually drawn, which
-	// makes the camera shake.
-	CG_SetFrameInterpolation();
-	CG_CalcEntityLerpPositions( killer );
-	VectorCopy( killer->lerpOrigin, eye );
+		// cg.frameInterpolation is normally set later in the frame, by
+		// CG_AddPacketEntities. Without this the killer's lerpOrigin here
+		// is computed with the previous frame's interpolation fraction and
+		// disagrees with where the killer model is actually drawn, which
+		// makes the camera shake.
+		CG_SetFrameInterpolation();
+		CG_CalcEntityLerpPositions( killer );
+		VectorCopy( killer->lerpOrigin, eye );
+	}
 	eye[2] += DEFAULT_VIEWHEIGHT;
 
 	CG_KillcamTargetPoint( target );
@@ -955,7 +991,7 @@ static qboolean CG_KillcamCalcKillerView( void ) {
 	// ceiling doesn't put it in solid
 	VectorCopy( eye, camOrg );
 	camOrg[2] += cg_killcamHeight.value;
-	CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killer->currentState.number, MASK_SOLID );
+	CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killerNum, MASK_SOLID );
 	VectorCopy( trace.endpos, eye );
 
 	// and shift it sideways, so that neither the killer's model nor the
@@ -970,7 +1006,7 @@ static qboolean CG_KillcamCalcKillerView( void ) {
 			right[1] = -forward[0];
 			right[2] = 0;
 			VectorMA( eye, cg_killcamSide.value, right, camOrg );
-			CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killer->currentState.number, MASK_SOLID );
+			CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killerNum, MASK_SOLID );
 			VectorCopy( trace.endpos, eye );
 		}
 	}
@@ -985,7 +1021,7 @@ static qboolean CG_KillcamCalcKillerView( void ) {
 	// back away from the killer's head so their model is visible,
 	// without going into a wall
 	VectorMA( eye, -cg_killcamRange.value, forward, camOrg );
-	CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killer->currentState.number, MASK_SOLID );
+	CG_Trace( &trace, eye, camMins, camMaxs, camOrg, killerNum, MASK_SOLID );
 	VectorCopy( trace.endpos, cg.refdef.vieworg );
 
 	return qtrue;
@@ -1082,6 +1118,12 @@ static int CG_CalcViewValues( void ) {
 			// camera was placed at the killer's eyes
 			cg_killcamRenderingFirstPerson = qtrue;
 			killcamCameraPlaced = qtrue;
+		} else if ( cg_killcamFirstPerson.integer &&
+			CG_KillcamKillerNum() == cg.snap->ps.clientNum &&
+			cg.snap->ps.stats[STAT_HEALTH] > 0 )
+		{
+			// the local player is the killer (game-winning replay):
+			// their own normal view is the killer's first-person view
 		} else if ( CG_KillcamCalcKillerView() ) {
 			// camera was placed at the killer
 			killcamCameraPlaced = qtrue;
