@@ -1456,6 +1456,7 @@ typedef enum {
 
 qboolean CG_KillcamRunning( void );
 qboolean CG_KillcamHasSnapshotFor( int time );
+const snapshot_t *CG_KillcamLastAliveSnapshot( void );
 void CG_KillcamStart( int time, killcamMode_t mode );
 void CG_KillcamStop( void );
 killcamMode_t CG_KillcamMode( void );

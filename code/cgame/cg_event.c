@@ -59,24 +59,34 @@ const char	*CG_PlaceString( int rank ) {
 =============
 CG_KillcamFindWitness
 
-The closest living player in the current snapshot that has a line of
-sight with the local player, or -1 if there is none. Used as the killcam
-subject for deaths that nobody else is responsible for.
+The closest living player that has a line of sight with the local
+player, or -1 if there is none. Used as the killcam subject for deaths
+that nobody else is responsible for.
 =============
 */
 static int CG_KillcamFindWitness( void ) {
-	const playerState_t	*ps = &cg.snap->ps;
+	const snapshot_t	*snap;
+	const playerState_t	*ps;
 	vec3_t		start, end;
 	trace_t		trace;
 	int			i;
 	int			best = -1;
 	float		dist, bestDist = 0;
 
+	// Look at how things were right before we died, and not at the
+	// current snapshot: a player that died together with us (e.g. to
+	// our own rocket) is as good a witness as any.
+	snap = CG_KillcamLastAliveSnapshot();
+	if ( !snap ) {
+		snap = cg.snap;
+	}
+	ps = &snap->ps;
+
 	VectorCopy( ps->origin, start );
 	start[2] += ps->viewheight;
 
-	for ( i = 0; i < cg.snap->numEntities; i++ ) {
-		const entityState_t	*es = &cg.snap->entities[i];
+	for ( i = 0; i < snap->numEntities; i++ ) {
+		const entityState_t	*es = &snap->entities[i];
 
 		if ( es->eType != ET_PLAYER || es->number >= MAX_CLIENTS ||
 			es->number == ps->clientNum || ( es->eFlags & EF_DEAD ) )
