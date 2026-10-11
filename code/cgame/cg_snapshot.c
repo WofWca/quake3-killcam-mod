@@ -32,6 +32,10 @@ CG_ProcessSnapshots reads from the ring instead of trap_GetSnapshot.
 // edge and abort mid-replay
 #define KILLCAM_CLAMP_MARGIN	200
 
+// how far back from the current time to look for a snapshot in which
+// the local player is still alive (ms), see CG_KillcamLastAliveSnapshot
+#define KILLCAM_LAST_ALIVE_SCAN	1000
+
 // define KILLCAM_NO_MISSILE_CHASE to compile the missile-chase camera out
 #ifndef KILLCAM_NO_MISSILE_CHASE
 // a missile explosion within this distance of the victim counts as the
@@ -157,6 +161,42 @@ static int CG_KillcamOldestSnapshotTime( void ) {
 		oldest = 0;
 	}
 	return cg_killcamSnapshots[oldest % KILLCAM_SNAPSHOT_BACKUP].serverTime;
+}
+
+
+/*
+==================
+CG_KillcamLastAliveSnapshot
+
+The newest recorded snapshot, up to the current time, in which the local
+player is still alive: the state of the world right before they died.
+NULL if there is no recent one.
+==================
+*/
+const snapshot_t *CG_KillcamLastAliveSnapshot( void ) {
+	int		i;
+	int		oldest;
+
+	oldest = cg_killcamRecordedCount - KILLCAM_SNAPSHOT_BACKUP;
+	if ( oldest < 0 ) {
+		oldest = 0;
+	}
+	for ( i = cg_killcamRecordedCount - 1 ; i >= oldest ; i-- ) {
+		const snapshot_t	*snap = &cg_killcamSnapshots[i % KILLCAM_SNAPSHOT_BACKUP];
+
+		if ( snap->serverTime > cg.time ) {
+			continue;
+		}
+		if ( snap->serverTime < cg.time - KILLCAM_LAST_ALIVE_SCAN ||
+			snap->ps.clientNum != cg.snap->ps.clientNum )
+		{
+			break;
+		}
+		if ( snap->ps.stats[STAT_HEALTH] > 0 ) {
+			return snap;
+		}
+	}
+	return NULL;
 }
 
 
