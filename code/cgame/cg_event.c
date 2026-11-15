@@ -136,6 +136,11 @@ static void CG_Obituary( entityState_t *ent ) {
 	clientInfo_t	*ci;
 	qboolean	following;
 
+	if ( cg_contextNum == CG_CONTEXT_KILLCAM ) {
+		// re-fired by the replay: already handled live
+		return;
+	}
+
 	target = ent->otherEntityNum;
 	attacker = ent->otherEntityNum2;
 	mod = ent->eventParm;
@@ -169,8 +174,6 @@ static void CG_Obituary( entityState_t *ent ) {
 #endif // KILLCAM_NO_GAME_WINNING
 
 	// killcam: replay own deaths
-	// (CG_KillcamScheduleDeathReplay ignores obituaries that the replay
-	// itself re-fires in the killcam context)
 	if ( target == cg.snap->ps.clientNum && cg_killcam.integer &&
 		!( following && cg_killcam.integer & 0x2 ) )
 	{
