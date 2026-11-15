@@ -630,10 +630,6 @@ another player. The replay itself is started later by CG_KillcamUpdate.
 ==================
 */
 void CG_KillcamScheduleDeathReplay( int killerNum, int mod, int time ) {
-	if ( cg_contextNum != CG_CONTEXT_LIVE ) {
-		// obituary events re-fired by the replay itself
-		return;
-	}
 	cg_killcamDeathPending = qtrue;
 	cg_killcamDeathKiller = killerNum;
 	cg_killcamDeathMod = mod;
@@ -912,10 +908,6 @@ replays.
 ==================
 */
 void CG_KillcamNoteKill( int killerNum, int victimNum, int mod, int time ) {
-	if ( cg_contextNum != CG_CONTEXT_LIVE ) {
-		// obituary events re-fired by the replay itself
-		return;
-	}
 	if ( cg_killcamFinalKillLocked ) {
 		return;
 	}
