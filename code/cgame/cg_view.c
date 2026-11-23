@@ -1066,6 +1066,7 @@ static int CG_CalcViewValues( void ) {
 	qboolean		killcamCameraPlaced;
 
 	memset( &cg.refdef, 0, sizeof( cg.refdef ) );
+	cg_killcamRenderingFirstPerson = qfalse;
 
 	// strings for in game rendering
 	// Q_strncpyz( cg.refdef.text[0], "Park Ranger", sizeof(cg.refdef.text[0]) );
@@ -1126,7 +1127,6 @@ static int CG_CalcViewValues( void ) {
 		}
 	}
 
-	cg_killcamRenderingFirstPerson = qfalse;
 	killcamCameraPlaced = qfalse;
 	// while fast-forwarding, the camera is back at the player's own view,
 	// so that the switch to the live view at the end is seamless
